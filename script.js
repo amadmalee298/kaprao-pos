@@ -798,91 +798,160 @@ function renderDashboard() {
 
 // ============ SETTINGS ============
 function renderSettings() {
-  document.getElementById('settings-body').innerHTML = `
-    <div class="settings-section">
-      <div class="settings-section-title">เมนูอาหาร</div>
-      ${menuItems.map(item => `
-        <div class="menu-item-row" style="opacity:${item.active === false ? '0.45' : '1'};transition:opacity 0.2s;">
-          <span class="menu-item-emoji-big">${item.emoji}</span>
-          <div class="menu-item-details">
-            <div class="menu-item-name-big">${item.name}</div>
-            <div class="menu-item-category">${item.cat}${item.active === false ? ' · <span style="color:var(--red2)">ปิดอยู่</span>' : ''}</div>
-          </div>
-          <div class="price-edit-wrap">
-            <input class="price-edit-input" type="number" id="price-${item.id}" value="${item.price}" min="0">
-            <button class="save-price-btn" onclick="savePrice(${item.id})">บันทึก</button>
-          </div>
-          <div class="toggle-btn ${item.active !== false ? 'on' : ''}" id="toggle-${item.id}" onclick="toggleMenu(${item.id}, this)"></div>
-        </div>`).join('')}
-    </div>
+  const body = document.getElementById('settings-body');
+  body.innerHTML = '';
 
-    <button class="add-menu-btn" onclick="showToast('🚧 ฟีเจอร์กำลังพัฒนา')">
-      <span style="font-size:24px;">+</span> เพิ่มเมนูใหม่
-    </button>
+  // ── Section: เมนูอาหาร ──
+  const secMenu = _makeSection('เมนูอาหาร');
+  menuItems.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'menu-item-row';
+    row.style.opacity = item.active === false ? '0.45' : '1';
+    row.style.transition = 'opacity 0.2s';
 
-    <div class="settings-section">
-      <div class="settings-section-title">บัญชีพนักงาน</div>
-      <div class="menu-item-row">
-        <span class="menu-item-emoji-big">👨‍🍳</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big">สมชาย</div>
-          <div class="menu-item-category">เจ้าของ / แอดมิน</div>
-        </div>
-        <div class="toggle-btn on"></div>
-      </div>
-      <div class="menu-item-row">
-        <span class="menu-item-emoji-big">👩‍🍳</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big">สมหญิง</div>
-          <div class="menu-item-category">พนักงานขาย</div>
-        </div>
-        <div class="toggle-btn on"></div>
-      </div>
-      <div class="menu-item-row">
-        <span class="menu-item-emoji-big">👩‍💼</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big">มาลี</div>
-          <div class="menu-item-category">พนักงานขาย</div>
-        </div>
-        <div class="toggle-btn on"></div>
-      </div>
-    </div>
+    // Emoji
+    const emoji = document.createElement('span');
+    emoji.className = 'menu-item-emoji-big';
+    emoji.textContent = item.emoji;
 
-    <div class="settings-section">
-      <div class="settings-section-title">ระบบ</div>
-      <div class="menu-item-row">
-        <span class="menu-item-emoji-big">🖨️</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big">เครื่องปริ้นท์</div>
-          <div class="menu-item-category">ไม่ได้เชื่อมต่อ</div>
-        </div>
-        <button style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;color:var(--text3);font-size:13px;cursor:pointer;font-family:inherit;" onclick="showToast('🔌 กำลังเชื่อมต่อ...')">เชื่อมต่อ</button>
+    // Name + category
+    const details = document.createElement('div');
+    details.className = 'menu-item-details';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'menu-item-name-big';
+    nameEl.textContent = item.name;
+    const catEl = document.createElement('div');
+    catEl.className = 'menu-item-category';
+    catEl.textContent = item.cat + (item.active === false ? ' · ปิดอยู่' : '');
+    if (item.active === false) catEl.style.color = 'var(--red2)';
+    details.appendChild(nameEl);
+    details.appendChild(catEl);
+
+    // Price input + save btn
+    const priceWrap = document.createElement('div');
+    priceWrap.className = 'price-edit-wrap';
+    const input = document.createElement('input');
+    input.className = 'price-edit-input';
+    input.type = 'number';
+    input.id = 'price-' + item.id;
+    input.value = item.price;
+    input.min = '0';
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-price-btn';
+    saveBtn.textContent = 'บันทึก';
+    saveBtn.onclick = () => savePrice(item.id, row);
+    priceWrap.appendChild(input);
+    priceWrap.appendChild(saveBtn);
+
+    // Toggle
+    const toggle = document.createElement('div');
+    toggle.className = 'toggle-btn' + (item.active !== false ? ' on' : '');
+    toggle.id = 'toggle-' + item.id;
+    toggle.onclick = () => toggleMenu(item.id, toggle, row, catEl);
+
+    row.appendChild(emoji);
+    row.appendChild(details);
+    row.appendChild(priceWrap);
+    row.appendChild(toggle);
+    secMenu.appendChild(row);
+  });
+  body.appendChild(secMenu);
+
+  // ── Add menu button ──
+  const addBtn = document.createElement('button');
+  addBtn.className = 'add-menu-btn';
+  addBtn.innerHTML = '<span style="font-size:24px;">+</span> เพิ่มเมนูใหม่';
+  addBtn.onclick = () => showToast('🚧 ฟีเจอร์กำลังพัฒนา');
+  body.appendChild(addBtn);
+
+  // ── Section: บัญชีพนักงาน ──
+  const secStaff = _makeSection('บัญชีพนักงาน');
+  [
+    { emoji:'👨‍🍳', name:'สมชาย', role:'เจ้าของ / แอดมิน' },
+    { emoji:'👩‍🍳', name:'สมหญิง', role:'พนักงานขาย' },
+    { emoji:'👩‍💼', name:'มาลี',   role:'พนักงานขาย' },
+    { emoji:'👨‍💼', name:'บุญมี',  role:'พนักงานขาย' },
+  ].forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'menu-item-row';
+    row.innerHTML = `
+      <span class="menu-item-emoji-big">${s.emoji}</span>
+      <div class="menu-item-details">
+        <div class="menu-item-name-big">${s.name}</div>
+        <div class="menu-item-category">${s.role}</div>
       </div>
-      <div class="menu-item-row">
-        <span class="menu-item-emoji-big">📊</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big">ส่งออกรายงาน Excel</div>
-          <div class="menu-item-category">4 ชีต: ยอดขาย / เมนู / พนักงาน / ชำระ</div>
-        </div>
-        <button style="background:var(--green2);border:none;border-radius:8px;padding:8px 16px;color:white;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700;" onclick="openExportModal()">📥 Export</button>
-      </div>
-      <div class="menu-item-row">
-        <span class="menu-item-emoji-big">🗑️</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big" style="color:var(--red2)">ล้างข้อมูลทั้งหมด</div>
-          <div class="menu-item-category">ลบประวัติขายและ reset ระบบ</div>
-        </div>
-        <button style="background:var(--red);border:none;border-radius:8px;padding:8px 14px;color:white;font-size:13px;cursor:pointer;font-family:inherit;font-weight:700;" onclick="confirmClearData()">ล้าง</button>
-      </div>
-      <div class="menu-item-row" style="cursor:pointer;" onclick="logout()">
-        <span class="menu-item-emoji-big">🚪</span>
-        <div class="menu-item-details">
-          <div class="menu-item-name-big" style="color:var(--red2)">ออกจากระบบ</div>
-          <div class="menu-item-category">ล็อกเอาท์พนักงาน</div>
-        </div>
-      </div>
-    </div>
-  `;
+      <div class="toggle-btn on"></div>`;
+    secStaff.appendChild(row);
+  });
+  body.appendChild(secStaff);
+
+  // ── Section: ระบบ ──
+  const secSys = _makeSection('ระบบ');
+
+  // Printer row
+  secSys.appendChild(_sysRow('🖨️','เครื่องปริ้นท์','ไม่ได้เชื่อมต่อ',
+    _btn('เชื่อมต่อ','var(--card2)','1px solid var(--border2)','var(--text3)',
+      () => showToast('🔌 กำลังเชื่อมต่อ...'))));
+
+  // Export row
+  secSys.appendChild(_sysRow('📊','ส่งออกรายงาน Excel','4 ชีต: ยอดขาย / เมนู / พนักงาน / ชำระ',
+    _btn('📥 Export','var(--green2)','none','white', openExportModal)));
+
+  // Clear data row
+  secSys.appendChild(_sysRow('🗑️','ล้างข้อมูลทั้งหมด','ลบประวัติขายและ reset ระบบ',
+    _btn('ล้าง','var(--red)','none','white', confirmClearData), 'var(--red2)'));
+
+  // Logout row
+  const logoutRow = _sysRow('🚪','ออกจากระบบ','ล็อกเอาท์พนักงาน', null, 'var(--red2)');
+  logoutRow.style.cursor = 'pointer';
+  logoutRow.onclick = logout;
+  secSys.appendChild(logoutRow);
+
+  body.appendChild(secSys);
+}
+
+// Helper: create section wrapper
+function _makeSection(title) {
+  const sec = document.createElement('div');
+  sec.className = 'settings-section';
+  const titleEl = document.createElement('div');
+  titleEl.className = 'settings-section-title';
+  titleEl.textContent = title;
+  sec.appendChild(titleEl);
+  return sec;
+}
+
+// Helper: create system row
+function _sysRow(emoji, name, sub, actionEl, nameColor) {
+  const row = document.createElement('div');
+  row.className = 'menu-item-row';
+  const em = document.createElement('span');
+  em.className = 'menu-item-emoji-big';
+  em.textContent = emoji;
+  const details = document.createElement('div');
+  details.className = 'menu-item-details';
+  const n = document.createElement('div');
+  n.className = 'menu-item-name-big';
+  n.textContent = name;
+  if (nameColor) n.style.color = nameColor;
+  const s = document.createElement('div');
+  s.className = 'menu-item-category';
+  s.textContent = sub;
+  details.appendChild(n);
+  details.appendChild(s);
+  row.appendChild(em);
+  row.appendChild(details);
+  if (actionEl) row.appendChild(actionEl);
+  return row;
+}
+
+// Helper: create action button
+function _btn(label, bg, border, color, fn) {
+  const b = document.createElement('button');
+  b.innerHTML = label;
+  b.style.cssText = `background:${bg};border:${border};border-radius:8px;padding:8px 16px;color:${color};font-size:13px;cursor:pointer;font-family:inherit;font-weight:700;flex-shrink:0;`;
+  b.onclick = fn;
+  return b;
 }
 
 function confirmClearData() {
@@ -896,7 +965,7 @@ function confirmClearData() {
   }
 }
 
-function savePrice(id) {
+function savePrice(id, row) {
   const input = document.getElementById('price-' + id);
   if (!input) return;
   const newPrice = parseFloat(input.value) || 0;
@@ -904,22 +973,24 @@ function savePrice(id) {
   if (idx >= 0) {
     menuItems[idx].price = newPrice;
     saveAll();
-    renderMenu();
-    showToast('💾 บันทึกราคาใหม่สำเร็จ');
+    renderMenu(); // sync POS prices
+    showToast('💾 บันทึกราคา ฿' + newPrice + ' สำเร็จ');
   }
 }
 
-function toggleMenu(id, btn) {
+function toggleMenu(id, toggleEl, rowEl, catEl) {
   const idx = menuItems.findIndex(m => m.id === id);
-  if (idx >= 0) {
-    const isCurrentlyActive = menuItems[idx].active !== false;
-    menuItems[idx].active = !isCurrentlyActive;
-    btn.classList.toggle('on', !isCurrentlyActive);
-    saveAll();
-    renderMenu();
-    renderSettings(); // re-render to update opacity + badge
-    showToast(menuItems[idx].active ? '👁️ เปิดขายเมนูนี้แล้ว' : '🙈 ซ่อนเมนูนี้ชั่วคราว');
-  }
+  if (idx < 0) return;
+  const nowActive = menuItems[idx].active !== false;
+  menuItems[idx].active = !nowActive;
+  // Update UI in-place -- no re-render, no DOM destruction
+  toggleEl.classList.toggle('on', !nowActive);
+  rowEl.style.opacity = !nowActive ? '1' : '0.45';
+  catEl.textContent = menuItems[idx].cat + (!nowActive ? '' : ' · ปิดอยู่');
+  catEl.style.color = !nowActive ? '' : 'var(--red2)';
+  saveAll();
+  renderMenu(); // sync POS grid
+  showToast(menuItems[idx].active ? '👁️ เปิดขายเมนูนี้แล้ว' : '🙈 ซ่อนเมนูนี้ชั่วคราว');
 }
 
 function logout() {
