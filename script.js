@@ -861,7 +861,7 @@ function renderSettings() {
   const addBtn = document.createElement('button');
   addBtn.className = 'add-menu-btn';
   addBtn.innerHTML = '<span style="font-size:24px;">+</span> เพิ่มเมนูใหม่';
-  addBtn.onclick = () => showToast('🚧 ฟีเจอร์กำลังพัฒนา');
+  addBtn.onclick = openAddMenuModal;
   body.appendChild(addBtn);
 
   // ── Section: บัญชีพนักงาน ──
@@ -954,9 +954,86 @@ function _btn(label, bg, border, color, fn) {
   return b;
 }
 
+// ============ ADD MENU ============
+const EMOJI_PRESETS = ['🍗','🥩','🦐','🐷','🐟','🥚','🌿','🍜','🍛','🍲','🥗','🫕',
+                       '💧','🥤','🧃','🍊','🍋','☕','🧋','🍺','🥛','🍵',
+                       '🍮','🍰','🧁','🍭','🍦','🥭','🍓','🍌','🫙'];
+const CATS = ['กะเพรา','เครื่องดื่ม','ของหวาน','อาหารจานเดียว','เมนูพิเศษ'];
+let selectedCat = 'กะเพรา';
+
+function openAddMenuModal() {
+  // Reset fields
+  document.getElementById('new-name').value  = '';
+  document.getElementById('new-price').value = '';
+  document.getElementById('new-desc').value  = '';
+  document.getElementById('new-emoji').value = '🍽️';
+  document.getElementById('emoji-preview').textContent = '🍽️';
+  selectedCat = 'กะเพรา';
+
+  // Emoji grid
+  const grid = document.getElementById('emoji-grid');
+  grid.innerHTML = '';
+  EMOJI_PRESETS.forEach(em => {
+    const b = document.createElement('button');
+    b.textContent = em;
+    b.style.cssText = 'font-size:22px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:6px;cursor:pointer;line-height:1;';
+    b.onclick = () => {
+      document.getElementById('new-emoji').value = em;
+      document.getElementById('emoji-preview').textContent = em;
+    };
+    grid.appendChild(b);
+  });
+
+  // Sync emoji input live
+  document.getElementById('new-emoji').oninput = function() {
+    document.getElementById('emoji-preview').textContent = this.value || '🍽️';
+  };
+
+  // Category buttons
+  const catWrap = document.getElementById('cat-btns');
+  catWrap.innerHTML = '';
+  CATS.forEach(cat => {
+    const b = document.createElement('button');
+    b.textContent = cat;
+    b.style.cssText = `background:${cat===selectedCat?'var(--orange)':'var(--card2)'};border:1px solid ${cat===selectedCat?'var(--orange2)':'var(--border)'};border-radius:20px;padding:7px 16px;color:${cat===selectedCat?'white':'var(--text2)'};font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.15s;`;
+    b.onclick = () => {
+      selectedCat = cat;
+      catWrap.querySelectorAll('button').forEach(x => {
+        x.style.background = x.textContent === cat ? 'var(--orange)' : 'var(--card2)';
+        x.style.borderColor = x.textContent === cat ? 'var(--orange2)' : 'var(--border)';
+        x.style.color = x.textContent === cat ? 'white' : 'var(--text2)';
+      });
+    };
+    catWrap.appendChild(b);
+  });
+
+  document.getElementById('addmenu-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 100);
+}
+
+function confirmAddMenu() {
+  const name  = document.getElementById('new-name').value.trim();
+  const price = parseFloat(document.getElementById('new-price').value) || 0;
+  const emoji = document.getElementById('new-emoji').value.trim() || '🍽️';
+  const desc  = document.getElementById('new-desc').value.trim() || '';
+
+  if (!name) { showToast('⚠️ กรุณาใส่ชื่อเมนู'); document.getElementById('new-name').focus(); return; }
+  if (price <= 0) { showToast('⚠️ กรุณาใส่ราคา'); document.getElementById('new-price').focus(); return; }
+
+  // Generate new unique ID
+  const newId = Math.max(0, ...menuItems.map(m => m.id)) + 1;
+  const newItem = { id: newId, name, emoji, price, cat: selectedCat, desc, active: true };
+  menuItems.push(newItem);
+  saveAll();
+  renderMenu();
+  renderSettings();
+  closeModal('addmenu-modal');
+  showToast(`✅ เพิ่ม "${name}" เรียบร้อย!`);
+}
+
+
 function confirmClearData() {
   if (confirm('⚠️ ยืนยันการล้างข้อมูลประวัติขายทั้งหมด?\n\nการกระทำนี้ไม่สามารถกู้คืนได้')) {
-    salesHistory = [];
     orderNum = 1;
     saveAll();
     document.getElementById('order-num').textContent = 'ออเดอร์ #001';

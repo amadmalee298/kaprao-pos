@@ -333,6 +333,61 @@ self.addEventListener('fetch', e => {
   </div>
 </div>
 
+<!-- Add Menu Modal -->
+<div class="modal-overlay" id="addmenu-modal">
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-title">➕ เพิ่มเมนูใหม่</div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <!-- Emoji picker -->
+      <div>
+        <div class="modal-label">เลือก Emoji</div>
+        <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:4px;"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <span style="font-size:13px;color:var(--text3);">หรือพิมพ์:</span>
+          <input id="new-emoji" type="text" maxlength="4" value="🍽️"
+            style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text);font-size:22px;font-family:inherit;outline:none;width:70px;text-align:center;">
+          <div id="emoji-preview" style="font-size:40px;">🍽️</div>
+        </div>
+      </div>
+
+      <!-- Name -->
+      <div>
+        <div class="modal-label">ชื่อเมนู</div>
+        <input id="new-name" type="text" placeholder="เช่น กะเพราปลา"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:15px;font-family:inherit;outline:none;">
+      </div>
+
+      <!-- Price -->
+      <div>
+        <div class="modal-label">ราคา (฿)</div>
+        <input id="new-price" type="number" placeholder="0" min="0"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--orange2);font-size:22px;font-weight:800;font-family:inherit;outline:none;text-align:right;">
+      </div>
+
+      <!-- Category -->
+      <div>
+        <div class="modal-label">หมวดหมู่</div>
+        <div id="cat-btns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+
+      <!-- Description -->
+      <div>
+        <div class="modal-label">คำอธิบาย (ไม่บังคับ)</div>
+        <input id="new-desc" type="text" placeholder="เช่น ปลาทอด รสแซ่บ"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;">
+      </div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:20px;">
+      <button class="modal-cancel" onclick="closeModal('addmenu-modal')">ยกเลิก</button>
+      <button class="modal-confirm" onclick="confirmAddMenu()" style="background:var(--orange);">
+        ➕ เพิ่มเมนู
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- PWA Offline Banner -->
 <div id="pwa-banner" style="position:fixed;top:0;left:0;right:0;background:var(--green2);color:white;text-align:center;padding:12px;font-size:14px;font-weight:700;z-index:300;transform:translateY(-60px);transition:transform 0.4s ease;font-family:inherit;">
   ✅ พร้อมใช้งาน Offline แล้ว!
