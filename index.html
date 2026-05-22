@@ -1524,6 +1524,7 @@ self.addEventListener('fetch', e => {
     <div class="pos-header-title">🌶️ POS</div>
     <span id="staff-display" class="table-tag">👨‍🍳 สมชาย</span>
     <span class="order-count-badge" id="order-num">ออเดอร์ #001</span>
+    <button onclick="cancelOrder()" style="background:var(--red);border:none;border-radius:12px;padding:6px 14px;color:white;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">❌ ยกเลิก</button>
   </div>
   <div class="pos-body">
     <!-- LEFT -->
@@ -1780,6 +1781,40 @@ self.addEventListener('fetch', e => {
       <button class="modal-confirm" onclick="confirmAddMenu()" style="background:var(--orange);">
         ➕ เพิ่มเมนู
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Sheets Modal -->
+<div class="modal-overlay" id="sheets-modal">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-title">📊 เชื่อมต่อ Google Sheets</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.8;">
+      วิธีตั้งค่า:<br>
+      1. เปิด Google Sheets → Extensions → Apps Script<br>
+      2. วาง script จาก <span style="color:var(--orange2);">bit.ly/sheets-webhook</span><br>
+      3. Deploy → Web App → Copy URL มาวางด้านล่าง
+    </div>
+    <div class="modal-label">Google Apps Script Web App URL</div>
+    <input id="sheets-url-input" type="url"
+      placeholder="https://script.google.com/macros/s/..."
+      style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:16px;">
+    <div id="sheets-status" style="font-size:12px;color:var(--text3);margin-bottom:16px;min-height:16px;"></div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal('sheets-modal')">ยกเลิก</button>
+      <button class="modal-confirm" style="background:var(--green2);" onclick="saveSheetsUrl()">✅ บันทึก</button>
+    </div>
+    <div style="margin-top:16px;background:var(--bg3);border-radius:10px;padding:14px;font-size:11px;color:var(--text3);line-height:1.8;">
+      <strong style="color:var(--orange2);">Apps Script สำหรับวาง:</strong><br>
+      <code style="color:var(--text2);font-size:10px;">
+      function doPost(e){<br>
+      &nbsp;&nbsp;var data=JSON.parse(e.postData.contents);<br>
+      &nbsp;&nbsp;var sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sales")||SpreadsheetApp.getActiveSpreadsheet().insertSheet("Sales");<br>
+      &nbsp;&nbsp;if(sheet.getLastRow()===0)sheet.appendRow(["ID","วันที่","เวลา","รายการ","ยอด","ส่วนลด","ชำระ","พนักงาน"]);<br>
+      &nbsp;&nbsp;sheet.appendRow([data.id,data.date,data.time,data.items,data.total,data.discount,data.method,data.staff]);<br>
+      &nbsp;&nbsp;return ContentService.createTextOutput("OK");<br>
+      }
+      </code>
     </div>
   </div>
 </div>
@@ -2129,6 +2164,7 @@ function confirmPayment() {
   salesHistory.unshift(receipt);
   orderNum++;
   saveAll(); // persist immediately
+  syncToSheets(receipt); // push to Google Sheets
   document.getElementById('order-num').textContent = `ออเดอร์ #${String(orderNum).padStart(3,'0')}`;
 
   closeModal('checkout-modal');
@@ -2590,11 +2626,25 @@ function renderDashboard() {
   }
   const maxRev30 = Math.max(...days30.map(d=>d.rev),1);
 
-  // Estimated cost (assume ~40% COGS)
-  const cogs = Math.round(monthRev * 0.4);
+  // P&L using REAL expenses data from expense tracker
+  const monthExpenses = expenses.filter(e => {
+    const d = e.date instanceof Date ? e.date : new Date(e.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const realExpenseTotal = monthExpenses.reduce((s, e) => s + Number(e.amount), 0);
+
+  // Breakdown by category for display
+  const expByCat = {};
+  monthExpenses.forEach(e => {
+    expByCat[e.catLabel || e.cat] = (expByCat[e.catLabel || e.cat] || 0) + Number(e.amount);
+  });
+
+  // If no real expenses recorded yet → fall back to estimate
+  const useEstimate = realExpenseTotal === 0;
+  const cogs        = useEstimate ? Math.round(monthRev * 0.4) : (expByCat['วัตถุดิบ'] || 0);
+  const otherCost   = useEstimate ? Math.round(monthRev * 0.15) : (realExpenseTotal - (expByCat['วัตถุดิบ'] || 0));
   const grossProfit = monthRev - cogs;
-  const estExpense = Math.round(monthRev * 0.15); // rent, utilities est.
-  const netProfit = grossProfit - estExpense;
+  const netProfit   = grossProfit - otherCost;
 
   document.getElementById('dash-date').textContent = now.toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
@@ -2734,13 +2784,13 @@ function renderDashboard() {
         }
       </div>
       <div class="dash-widget">
-        <div class="widget-title">💼 ประมาณกำไร-ขาดทุน (เดือนนี้)</div>
+        <div class="widget-title">💼 กำไร-ขาดทุน (เดือนนี้)</div>
         <div class="cost-row">
           <span class="cost-label">รายได้รวม</span>
           <span class="cost-value cost-neutral">฿${monthRev.toLocaleString()}</span>
         </div>
         <div class="cost-row">
-          <span class="cost-label">ต้นทุนวัตถุดิบ (~40%)</span>
+          <span class="cost-label">ต้นทุนวัตถุดิบ${useEstimate?' (ประมาณ ~40%)':''}</span>
           <span class="cost-value cost-expense">-฿${cogs.toLocaleString()}</span>
         </div>
         <div class="cost-row">
@@ -2748,15 +2798,19 @@ function renderDashboard() {
           <span class="cost-value cost-profit">฿${grossProfit.toLocaleString()}</span>
         </div>
         <div class="cost-row">
-          <span class="cost-label">ค่าใช้จ่ายดำเนินการ (~15%)</span>
-          <span class="cost-value cost-expense">-฿${estExpense.toLocaleString()}</span>
+          <span class="cost-label">ค่าใช้จ่ายอื่นๆ${useEstimate?' (ประมาณ ~15%)':''}</span>
+          <span class="cost-value cost-expense">-฿${otherCost.toLocaleString()}</span>
         </div>
+        ${!useEstimate && Object.keys(expByCat).length > 0 ? `
+        <div style="background:var(--bg3);border-radius:8px;padding:10px;margin:4px 0;font-size:11px;color:var(--text3);">
+          ${Object.entries(expByCat).map(([k,v])=>`${k}: ฿${Number(v).toLocaleString()}`).join(' · ')}
+        </div>` : ''}
         <div style="border-top:2px solid var(--border2);padding-top:12px;margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:14px;font-weight:800;color:var(--text2);">กำไรสุทธิ (ประมาณ)</span>
+          <span style="font-size:14px;font-weight:800;color:var(--text2);">กำไรสุทธิ</span>
           <span style="font-size:22px;font-weight:800;color:${netProfit>=0?'var(--green2)':'var(--red2)'};">฿${netProfit.toLocaleString()}</span>
         </div>
-        <div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6;">
-          * ตัวเลขนี้เป็นการประมาณการเบื้องต้น<br>ควรปรับตามต้นทุนจริงของร้าน
+        <div style="margin-top:8px;padding:8px;background:var(--bg3);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6;">
+          ${useEstimate ? '* ยังไม่มีข้อมูลค่าใช้จ่ายจริง — ใส่ข้อมูลในหน้า 💸 รายจ่าย เพื่อคำนวณแม่นขึ้น' : '✅ คำนวณจากค่าใช้จ่ายจริงที่บันทึกไว้'}
         </div>
       </div>
     </div>
@@ -2816,10 +2870,17 @@ function renderSettings() {
     toggle.id = 'toggle-' + item.id;
     toggle.onclick = () => toggleMenu(item.id, toggle, row, catEl);
 
+    // Delete button
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️';
+    delBtn.style.cssText = 'background:transparent;border:1px solid var(--border2);border-radius:8px;padding:6px 10px;color:var(--text3);font-size:16px;cursor:pointer;flex-shrink:0;';
+    delBtn.onclick = () => deleteMenu(item.id);
+
     row.appendChild(emoji);
     row.appendChild(details);
     row.appendChild(priceWrap);
     row.appendChild(toggle);
+    row.appendChild(delBtn);
     secMenu.appendChild(row);
   });
   body.appendChild(secMenu);
@@ -2859,6 +2920,11 @@ function renderSettings() {
   secSys.appendChild(_sysRow('🖨️','เครื่องปริ้นท์','ไม่ได้เชื่อมต่อ',
     _btn('เชื่อมต่อ','var(--card2)','1px solid var(--border2)','var(--text3)',
       () => showToast('🔌 กำลังเชื่อมต่อ...'))));
+
+  // Google Sheets row
+  const sheetsStatus = sheetsWebhookUrl ? '✅ เชื่อมต่อแล้ว' : 'ยังไม่ได้ตั้งค่า';
+  secSys.appendChild(_sysRow('📊','Google Sheets Sync', sheetsStatus,
+    _btn(sheetsWebhookUrl ? '⚙️ แก้ไข':'🔗 ตั้งค่า','var(--green2)','none','white', openSheetsSettings)));
 
   // Export row
   secSys.appendChild(_sysRow('📊','ส่งออกรายงาน Excel','4 ชีต: ยอดขาย / เมนู / พนักงาน / ชำระ',
@@ -2927,6 +2993,71 @@ const EMOJI_PRESETS = ['🍗','🥩','🦐','🐷','🐟','🥚','🌿','🍜','
                        '🍮','🍰','🧁','🍭','🍦','🥭','🍓','🍌','🫙'];
 const CATS = ['กะเพรา','เครื่องดื่ม','ของหวาน','อาหารจานเดียว','เมนูพิเศษ'];
 let selectedCat = 'กะเพรา';
+
+// ── Delete menu item ──
+function deleteMenu(id) {
+  const item = menuItems.find(m => m.id === id);
+  if (!item) return;
+  if (!confirm(`🗑️ ลบ "${item.name}" ออกจากเมนู?\n\nจะไม่สามารถกู้คืนได้`)) return;
+  menuItems = menuItems.filter(m => m.id !== id);
+  // Remove from cart too if present
+  cart = cart.filter(c => c.id !== id);
+  saveAll();
+  renderCart();
+  renderMenu();
+  renderSettings();
+  showToast(`🗑️ ลบ "${item.name}" แล้ว`);
+}
+
+// ── Cancel current order ──
+function cancelOrder() {
+  if (cart.length === 0) { showToast('⚠️ ไม่มีรายการในตะกร้า'); return; }
+  if (!confirm('❌ ยกเลิกออเดอร์นี้?\n\nรายการทั้งหมดจะถูกล้างออก')) return;
+  clearCart();
+  document.getElementById('discount-input').value = '';
+  showToast('❌ ยกเลิกออเดอร์แล้ว');
+}
+
+// ── Google Sheets Sync ──
+let sheetsWebhookUrl = localStorage.getItem('kp_sheets_url') || '';
+
+function openSheetsSettings() {
+  document.getElementById('sheets-modal').classList.add('open');
+  document.getElementById('sheets-url-input').value = sheetsWebhookUrl;
+}
+
+async function saveSheetsUrl() {
+  sheetsWebhookUrl = document.getElementById('sheets-url-input').value.trim();
+  localStorage.setItem('kp_sheets_url', sheetsWebhookUrl);
+  closeModal('sheets-modal');
+  showToast('✅ บันทึก Google Sheets URL แล้ว');
+}
+
+async function syncToSheets(receipt) {
+  if (!sheetsWebhookUrl) return; // silent skip if not configured
+  try {
+    const payload = {
+      id:       receipt.id,
+      date:     receipt.date.toLocaleDateString('th-TH'),
+      time:     receipt.date.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      items:    receipt.items.join(', '),
+      total:    receipt.total,
+      discount: receipt.discount || 0,
+      method:   receipt.method === 'cash' ? 'เงินสด' : receipt.method === 'transfer' ? 'โอน' : 'QR Code',
+      staff:    receipt.staff,
+    };
+    await fetch(sheetsWebhookUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    showToast('📊 ส่งข้อมูลขึ้น Google Sheets แล้ว');
+  } catch(e) {
+    console.warn('Sheets sync failed:', e);
+    showToast('⚠️ Sheets sync ล้มเหลว ตรวจสอบ URL');
+  }
+}
 
 function openAddMenuModal() {
   // Reset fields
