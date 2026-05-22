@@ -1785,6 +1785,62 @@ self.addEventListener('fetch', e => {
   </div>
 </div>
 
+<!-- Staff Edit Modal -->
+<div class="modal-overlay" id="staff-modal">
+  <div class="modal-box" style="max-width:460px;max-height:90dvh;overflow-y:auto;">
+    <div class="modal-title" id="staff-modal-title">✏️ แก้ไขพนักงาน</div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <!-- Emoji -->
+      <div>
+        <div class="modal-label">Avatar</div>
+        <div id="staff-emoji-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:8px;"></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input id="staff-emoji-input" type="text" maxlength="4"
+            style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--text);font-size:22px;font-family:inherit;outline:none;width:60px;text-align:center;">
+          <div id="staff-emoji-preview" style="font-size:44px;">👤</div>
+        </div>
+      </div>
+
+      <!-- Name -->
+      <div>
+        <div class="modal-label">ชื่อพนักงาน</div>
+        <input id="staff-name-input" type="text" placeholder="เช่น สมชาย"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:16px;font-family:inherit;outline:none;">
+      </div>
+
+      <!-- Role -->
+      <div>
+        <div class="modal-label">ตำแหน่ง</div>
+        <div id="staff-role-grid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      </div>
+
+      <!-- PIN -->
+      <div style="background:var(--bg3);border-radius:var(--radius-sm);padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:13px;font-weight:700;color:var(--orange2);">🔐 ตั้งรหัส PIN (4 หลัก)</div>
+        <div>
+          <div class="modal-label">PIN ใหม่</div>
+          <input id="staff-pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="••••"
+            style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:20px;font-family:inherit;outline:none;letter-spacing:8px;text-align:center;">
+        </div>
+        <div>
+          <div class="modal-label">ยืนยัน PIN</div>
+          <input id="staff-pin-confirm" type="password" inputmode="numeric" maxlength="4" placeholder="••••"
+            style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:20px;font-family:inherit;outline:none;letter-spacing:8px;text-align:center;">
+        </div>
+        <div style="font-size:11px;color:var(--text3);">* เว้นว่างไว้ถ้าไม่ต้องการตั้ง PIN (เข้าได้โดยกด PIN ใดๆ ก็ได้)</div>
+      </div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:20px;">
+      <button class="modal-cancel" onclick="closeModal('staff-modal')">ยกเลิก</button>
+      <button class="modal-confirm" onclick="saveStaff()" style="background:var(--orange);">
+        💾 บันทึก
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Google Sheets Modal -->
 <div class="modal-overlay" id="sheets-modal">
   <div class="modal-box" style="max-width:480px;">
@@ -1855,6 +1911,7 @@ const LS = {
   MENUS:    'kp_menus',
   ORDER:    'kp_orderNum',
   EXPENSES: 'kp_expenses',
+  STAFF:    'kp_staff',
 };
 
 function saveAll() {
@@ -1866,6 +1923,7 @@ function saveAll() {
     localStorage.setItem(LS.ORDER,    JSON.stringify(orderNum));
     const exps = expenses.map(e => ({...e, date: e.date instanceof Date ? e.date.toISOString() : e.date}));
     localStorage.setItem(LS.EXPENSES, JSON.stringify(exps));
+    localStorage.setItem(LS.STAFF,    JSON.stringify(staffList));
   } catch(e) { console.warn('saveAll failed', e); }
 }
 
@@ -1890,12 +1948,22 @@ function loadAll() {
     if (rawOrder) orderNum = JSON.parse(rawOrder);
     const rawExp = localStorage.getItem(LS.EXPENSES);
     if (rawExp) expenses = JSON.parse(rawExp).map(e => ({...e, date: new Date(e.date)}));
+    const rawStaff = localStorage.getItem(LS.STAFF);
+    if (rawStaff) staffList = JSON.parse(rawStaff);
   } catch(e) { console.warn('loadAll failed', e); }
 }
 
 // Demo history — only seed if localStorage is empty
 let salesHistory = [];
 let expenses = [];  // { id, date, name, amount, cat, catIcon }
+
+// Default staff list
+let staffList = [
+  { id: 1, emoji:'👨‍🍳', name:'สมชาย',  role:'เจ้าของ / แอดมิน', pin:'1234', active:true },
+  { id: 2, emoji:'👩‍🍳', name:'สมหญิง', role:'พนักงานขาย',        pin:'',     active:true },
+  { id: 3, emoji:'👩‍💼', name:'มาลี',   role:'พนักงานขาย',        pin:'',     active:true },
+  { id: 4, emoji:'👨‍💼', name:'บุญมี',  role:'พนักงานขาย',        pin:'',     active:true },
+];
 function generateDemoHistory() {
   const methods = ['cash','transfer','qr'];
   const now = new Date();
@@ -1953,13 +2021,35 @@ function updatePinDots() {
 }
 
 function pinEnter() {
-  if(pin.length < 4) { showToast('⚠️ กรุณาใส่ PIN 4 หลัก'); return; }
-  // Accept any 4-digit PIN for demo
-  document.getElementById('staff-display').textContent = '👨‍🍳 ' + currentStaff;
+  if (pin.length < 4) { showToast('⚠️ กรุณาใส่ PIN 4 หลัก'); return; }
+  const staff = staffList.find(s => s.name === currentStaff);
+  // If staff has a PIN, validate it; if no PIN set, accept any 4 digits
+  if (staff && staff.pin && staff.pin !== pin) {
+    showToast('❌ PIN ไม่ถูกต้อง');
+    pin = '';
+    updatePinDots();
+    return;
+  }
+  document.getElementById('staff-display').textContent = (staff ? staff.emoji : '👤') + ' ' + currentStaff;
   goTo('pos');
   document.getElementById('bottom-nav').style.display = 'flex';
   pin = '';
   updatePinDots();
+}
+
+function refreshLoginStaffGrid() {
+  const grid = document.querySelector('.staff-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  staffList.filter(s => s.active !== false).forEach((s, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'staff-btn' + (i === 0 ? ' selected' : '');
+    btn.innerHTML = `<span class="staff-icon">${s.emoji}</span>${s.name}`;
+    btn.onclick = () => selectStaff(btn, s.name);
+    grid.appendChild(btn);
+  });
+  // Set default selected staff
+  if (staffList.length > 0) currentStaff = staffList.find(s => s.active !== false)?.name || currentStaff;
 }
 
 // ============ NAVIGATION ============
@@ -2894,23 +2984,52 @@ function renderSettings() {
 
   // ── Section: บัญชีพนักงาน ──
   const secStaff = _makeSection('บัญชีพนักงาน');
-  [
-    { emoji:'👨‍🍳', name:'สมชาย', role:'เจ้าของ / แอดมิน' },
-    { emoji:'👩‍🍳', name:'สมหญิง', role:'พนักงานขาย' },
-    { emoji:'👩‍💼', name:'มาลี',   role:'พนักงานขาย' },
-    { emoji:'👨‍💼', name:'บุญมี',  role:'พนักงานขาย' },
-  ].forEach(s => {
+
+  staffList.forEach(s => {
     const row = document.createElement('div');
     row.className = 'menu-item-row';
-    row.innerHTML = `
-      <span class="menu-item-emoji-big">${s.emoji}</span>
-      <div class="menu-item-details">
-        <div class="menu-item-name-big">${s.name}</div>
-        <div class="menu-item-category">${s.role}</div>
-      </div>
-      <div class="toggle-btn on"></div>`;
+
+    // Avatar
+    const av = document.createElement('span');
+    av.className = 'menu-item-emoji-big';
+    av.textContent = s.emoji;
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'menu-item-details';
+    const sName = document.createElement('div');
+    sName.className = 'menu-item-name-big';
+    sName.textContent = s.name;
+    const sRole = document.createElement('div');
+    sRole.className = 'menu-item-category';
+    sRole.textContent = s.role + (s.pin ? ' · มี PIN' : ' · ยังไม่ตั้ง PIN');
+    info.appendChild(sName);
+    info.appendChild(sRole);
+
+    // Edit btn
+    const editBtn = _btn('✏️ แก้ไข','var(--card2)','1px solid var(--border2)','var(--text2)',
+      () => openStaffModal(s.id));
+
+    // Delete btn (ไม่ให้ลบตัวเองถ้าเหลือคนเดียว)
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️';
+    delBtn.style.cssText = 'background:transparent;border:1px solid var(--border2);border-radius:8px;padding:6px 10px;color:var(--text3);font-size:16px;cursor:pointer;flex-shrink:0;';
+    delBtn.onclick = () => deleteStaff(s.id);
+
+    row.appendChild(av);
+    row.appendChild(info);
+    row.appendChild(editBtn);
+    row.appendChild(delBtn);
     secStaff.appendChild(row);
   });
+
+  // Add staff button
+  const addStaffBtn = document.createElement('div');
+  addStaffBtn.style.cssText = 'padding:12px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;color:var(--orange2);font-size:14px;font-weight:700;border-top:1px solid var(--border);';
+  addStaffBtn.innerHTML = '<span style="font-size:20px;">+</span> เพิ่มพนักงานใหม่';
+  addStaffBtn.onclick = () => openStaffModal(null);
+  secStaff.appendChild(addStaffBtn);
+
   body.appendChild(secStaff);
 
   // ── Section: ระบบ ──
@@ -2993,6 +3112,111 @@ const EMOJI_PRESETS = ['🍗','🥩','🦐','🐷','🐟','🥚','🌿','🍜','
                        '🍮','🍰','🧁','🍭','🍦','🥭','🍓','🍌','🫙'];
 const CATS = ['กะเพรา','เครื่องดื่ม','ของหวาน','อาหารจานเดียว','เมนูพิเศษ'];
 let selectedCat = 'กะเพรา';
+
+// ============ STAFF MANAGEMENT ============
+const STAFF_EMOJIS = ['👨‍🍳','👩‍🍳','👨‍💼','👩‍💼','🧑‍🍳','👱','👦','👧','🧑','👴','👵','🧑‍💻'];
+const STAFF_ROLES  = ['เจ้าของ / แอดมิน','พนักงานขาย','แคชเชียร์','ผู้จัดการ','พนักงานพาร์ทไทม์'];
+let editingStaffId = null;
+
+function openStaffModal(id) {
+  editingStaffId = id;
+  const staff = id ? staffList.find(s => s.id === id) : null;
+  const modal = document.getElementById('staff-modal');
+
+  // Populate emoji grid
+  const eg = document.getElementById('staff-emoji-grid');
+  eg.innerHTML = '';
+  STAFF_EMOJIS.forEach(em => {
+    const b = document.createElement('button');
+    b.textContent = em;
+    b.style.cssText = 'font-size:24px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer;line-height:1;';
+    b.onclick = () => {
+      document.getElementById('staff-emoji-input').value = em;
+      document.getElementById('staff-emoji-preview').textContent = em;
+    };
+    eg.appendChild(b);
+  });
+
+  // Populate role buttons
+  const rg = document.getElementById('staff-role-grid');
+  rg.innerHTML = '';
+  const curRole = staff?.role || STAFF_ROLES[1];
+  STAFF_ROLES.forEach(role => {
+    const b = document.createElement('button');
+    b.textContent = role;
+    b.style.cssText = `background:${role===curRole?'var(--orange)':'var(--card2)'};border:1px solid ${role===curRole?'var(--orange2)':'var(--border)'};border-radius:20px;padding:6px 12px;color:${role===curRole?'white':'var(--text2)'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;`;
+    b.onclick = () => {
+      rg.querySelectorAll('button').forEach(x => {
+        x.style.background = x.textContent === role ? 'var(--orange)' : 'var(--card2)';
+        x.style.borderColor = x.textContent === role ? 'var(--orange2)' : 'var(--border)';
+        x.style.color = x.textContent === role ? 'white' : 'var(--text2)';
+      });
+      b.dataset.selected = 'true';
+    };
+    if (role === curRole) b.dataset.selected = 'true';
+    rg.appendChild(b);
+  });
+
+  // Fill fields
+  const curEmoji = staff?.emoji || '👤';
+  document.getElementById('staff-emoji-input').value      = curEmoji;
+  document.getElementById('staff-emoji-preview').textContent = curEmoji;
+  document.getElementById('staff-name-input').value       = staff?.name || '';
+  document.getElementById('staff-pin-input').value        = staff?.pin || '';
+  document.getElementById('staff-pin-confirm').value      = staff?.pin || '';
+  document.getElementById('staff-modal-title').textContent = id ? '✏️ แก้ไขพนักงาน' : '➕ เพิ่มพนักงาน';
+
+  // Emoji live preview
+  document.getElementById('staff-emoji-input').oninput = function() {
+    document.getElementById('staff-emoji-preview').textContent = this.value || '👤';
+  };
+
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('staff-name-input').focus(), 100);
+}
+
+function saveStaff() {
+  const name  = document.getElementById('staff-name-input').value.trim();
+  const emoji = document.getElementById('staff-emoji-input').value.trim() || '👤';
+  const pin1  = document.getElementById('staff-pin-input').value.trim();
+  const pin2  = document.getElementById('staff-pin-confirm').value.trim();
+
+  const roleBtn = document.querySelector('#staff-role-grid button[data-selected="true"]');
+  const role  = roleBtn ? roleBtn.textContent : STAFF_ROLES[1];
+
+  if (!name) { showToast('⚠️ กรุณาใส่ชื่อพนักงาน'); return; }
+  if (pin1 && !/^\d{4}$/.test(pin1)) { showToast('⚠️ PIN ต้องเป็นตัวเลข 4 หลัก'); return; }
+  if (pin1 !== pin2) { showToast('⚠️ PIN ไม่ตรงกัน กรุณาใส่ใหม่'); return; }
+
+  if (editingStaffId) {
+    const idx = staffList.findIndex(s => s.id === editingStaffId);
+    if (idx >= 0) {
+      staffList[idx] = { ...staffList[idx], name, emoji, role, pin: pin1 };
+      showToast(`✅ อัปเดต "${name}" แล้ว`);
+    }
+  } else {
+    const newId = Math.max(0, ...staffList.map(s => s.id)) + 1;
+    staffList.push({ id: newId, name, emoji, role, pin: pin1, active: true });
+    showToast(`✅ เพิ่ม "${name}" แล้ว`);
+  }
+
+  saveAll();
+  refreshLoginStaffGrid();
+  closeModal('staff-modal');
+  renderSettings();
+}
+
+function deleteStaff(id) {
+  if (staffList.length <= 1) { showToast('⚠️ ต้องมีพนักงานอย่างน้อย 1 คน'); return; }
+  const s = staffList.find(x => x.id === id);
+  if (!s) return;
+  if (!confirm(`🗑️ ลบ "${s.name}" ออกจากระบบ?`)) return;
+  staffList = staffList.filter(x => x.id !== id);
+  saveAll();
+  refreshLoginStaffGrid();
+  renderSettings();
+  showToast(`🗑️ ลบ "${s.name}" แล้ว`);
+}
 
 // ── Delete menu item ──
 function deleteMenu(id) {
@@ -3186,6 +3410,7 @@ function showToast(msg) {
 
 // ============ INIT ============
 renderMenu();
+refreshLoginStaffGrid();
 document.getElementById('order-num').textContent = `ออเดอร์ #${String(orderNum).padStart(3,'0')}`;
 
 </script>
