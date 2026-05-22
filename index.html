@@ -1991,9 +1991,12 @@ function generateDemoHistory() {
   saveAll(); // persist demo data
 }
 
-// Load persisted data; seed demo only on very first run
+// Load persisted data; seed demo ONLY on very first run ever
 loadAll();
-if (salesHistory.length === 0) generateDemoHistory();
+if (salesHistory.length === 0 && !localStorage.getItem('kp_seeded')) {
+  generateDemoHistory();
+  localStorage.setItem('kp_seeded', '1');
+}
 
 // ============ LOGIN ============
 function selectStaff(btn, name) {
@@ -3355,13 +3358,27 @@ function confirmAddMenu() {
 
 
 function confirmClearData() {
-  if (confirm('⚠️ ยืนยันการล้างข้อมูลประวัติขายทั้งหมด?\n\nการกระทำนี้ไม่สามารถกู้คืนได้')) {
-    orderNum = 1;
-    saveAll();
-    document.getElementById('order-num').textContent = 'ออเดอร์ #001';
-    showToast('🗑️ ล้างข้อมูลเรียบร้อย');
-    renderSettings();
-  }
+  if (!confirm('⚠️ ยืนยันการล้างข้อมูลทั้งหมด?\n\n• ประวัติการขาย\n• ค่าใช้จ่าย\n• เลขออเดอร์\n\nการกระทำนี้ไม่สามารถกู้คืนได้')) return;
+
+  // Reset in-memory
+  salesHistory = [];
+  expenses     = [];
+  orderNum     = 1;
+
+  // Wipe every LS key (but keep staff, menus, sheets URL)
+  localStorage.removeItem(LS.HISTORY);
+  localStorage.removeItem(LS.EXPENSES);
+  localStorage.removeItem(LS.ORDER);
+  localStorage.removeItem('kp_seeded'); // allow fresh re-seed if user wants
+
+  // Persist the cleared state
+  saveAll();
+
+  // Update UI
+  document.getElementById('order-num').textContent = 'ออเดอร์ #001';
+  clearCart();
+  showToast('🗑️ ล้างข้อมูลเรียบร้อย');
+  renderSettings();
 }
 
 function savePrice(id, row) {
