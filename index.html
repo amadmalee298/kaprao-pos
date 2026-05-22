@@ -1691,11 +1691,15 @@ self.addEventListener('fetch', e => {
 
 <!-- Receipt Detail Modal -->
 <div class="modal-overlay" id="receipt-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:440px;">
     <div class="modal-title">🧾 รายละเอียดใบเสร็จ</div>
     <div id="receipt-detail-content"></div>
-    <div class="modal-btns" style="margin-top:20px;">
-      <button class="modal-confirm" onclick="closeModal('receipt-modal')">ปิด</button>
+    <div style="display:flex;gap:10px;margin-top:20px;flex-direction:column;">
+      <button id="void-bill-btn"
+        style="display:none;width:100%;background:var(--red);border:none;border-radius:var(--radius-sm);padding:14px;color:white;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;align-items:center;justify-content:center;gap:8px;">
+        ❌ ยกเลิกบิลนี้
+      </button>
+      <button class="modal-confirm" onclick="closeModal('receipt-modal')" style="width:100%;">ปิด</button>
     </div>
   </div>
 </div>
@@ -1862,15 +1866,26 @@ self.addEventListener('fetch', e => {
     </div>
     <div style="margin-top:16px;background:var(--bg3);border-radius:10px;padding:14px;font-size:11px;color:var(--text3);line-height:1.8;">
       <strong style="color:var(--orange2);">Apps Script สำหรับวาง:</strong><br>
-      <code style="color:var(--text2);font-size:10px;">
-      function doPost(e){<br>
-      &nbsp;&nbsp;var data=JSON.parse(e.postData.contents);<br>
-      &nbsp;&nbsp;var sheet=SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Sales")||SpreadsheetApp.getActiveSpreadsheet().insertSheet("Sales");<br>
-      &nbsp;&nbsp;if(sheet.getLastRow()===0)sheet.appendRow(["ID","วันที่","เวลา","รายการ","ยอด","ส่วนลด","ชำระ","พนักงาน"]);<br>
-      &nbsp;&nbsp;sheet.appendRow([data.id,data.date,data.time,data.items,data.total,data.discount,data.method,data.staff]);<br>
-      &nbsp;&nbsp;return ContentService.createTextOutput("OK");<br>
-      }
-      </code>
+      <code style="color:var(--text2);font-size:10px;white-space:pre-wrap;">function doPost(e){
+  var data=JSON.parse(e.postData.contents);
+  var ss=SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName=data.sheet||"Sales";
+  var sheet=ss.getSheetByName(sheetName)||ss.insertSheet(sheetName);
+
+  if(sheetName==="Sales"&&sheet.getLastRow()===0)
+    sheet.appendRow(["ID","วันที่","เวลา","รายการ","ยอด","ส่วนลด","ชำระ","พนักงาน"]);
+
+  if(sheetName==="Expenses"&&sheet.getLastRow()===0)
+    sheet.appendRow(["ID","วันที่","เวลา","หมวด","รายการ","จำนวน","พนักงาน"]);
+
+  if(sheetName==="Sales")
+    sheet.appendRow([data.id,data.date,data.time,data.items,data.total,data.discount,data.method,data.staff]);
+
+  if(sheetName==="Expenses")
+    sheet.appendRow([data.id,data.date,data.time,data.category,data.name,data.amount,data.staff]);
+
+  return ContentService.createTextOutput("OK");
+}</code>
     </div>
   </div>
 </div>
@@ -2304,15 +2319,14 @@ function renderHistory() {
   const filtered = getFilteredHistory();
   const list = document.getElementById('history-list');
 
-  // Group by date
   const groups = {};
   filtered.forEach(s => {
     const dk = s.date.toLocaleDateString('th-TH', {day:'numeric',month:'long',year:'numeric'});
-    if(!groups[dk]) groups[dk] = [];
+    if (!groups[dk]) groups[dk] = [];
     groups[dk].push(s);
   });
 
-  if(filtered.length === 0) {
+  if (filtered.length === 0) {
     list.innerHTML = `<div class="cart-empty" style="flex:1;display:flex;margin:40px auto;">
       <div class="cart-empty-icon">📋</div>
       <div class="cart-empty-text">ไม่พบประวัติการขาย</div></div>`;
@@ -2320,45 +2334,104 @@ function renderHistory() {
     list.innerHTML = Object.entries(groups).map(([date, items]) => `
       <div class="history-date-group">
         <div class="history-date-label">${date}</div>
-        ${items.map(s => `
-          <div class="receipt-card" onclick="showReceipt('${s.id}')">
-            <div class="receipt-icon">${s.method==='cash'?'💵':s.method==='qr'?'📷':'📱'}</div>
+        ${items.map(s => {
+          const voided = s.voided === true;
+          const icon   = voided ? '🚫' : s.method==='cash'?'💵':s.method==='qr'?'📷':'📱';
+          const badge  = voided
+            ? `<span style="background:rgba(192,57,43,0.2);color:var(--red2);border-radius:8px;padding:2px 8px;font-size:11px;font-weight:700;">ยกเลิก</span>`
+            : `<span class="receipt-method-badge badge-${s.method}">${s.method==='cash'?'เงินสด':s.method==='transfer'?'โอน':'QR'}</span>`;
+          return `
+          <div class="receipt-card" onclick="showReceipt('${s.id}')"
+            style="${voided?'opacity:0.55;':''}">
+            <div class="receipt-icon">${icon}</div>
             <div class="receipt-info">
-              <div class="receipt-id">${s.id}</div>
+              <div class="receipt-id" style="${voided?'text-decoration:line-through;':''}">${s.id}</div>
               <div class="receipt-items">${s.items.join(', ')}</div>
               <div class="receipt-time">${s.date.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} · ${s.staff}</div>
             </div>
             <div class="receipt-amount">
-              <div class="receipt-total">฿${s.total}</div>
-              <div><span class="receipt-method-badge badge-${s.method}">${s.method==='cash'?'เงินสด':s.method==='transfer'?'โอน':'QR'}</span></div>
+              <div class="receipt-total" style="${voided?'text-decoration:line-through;color:var(--text3);':''}">฿${Number(s.total).toLocaleString()}</div>
+              <div>${badge}</div>
             </div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>`).join('');
   }
 
-  const total = filtered.reduce((s,i)=>s+i.total, 0);
-  document.getElementById('hist-count').textContent = filtered.length;
-  document.getElementById('hist-revenue').textContent = '฿'+total.toLocaleString();
-  document.getElementById('hist-avg').textContent = filtered.length ? '฿'+Math.round(total/filtered.length) : '฿0';
+  // Exclude voided from summary
+  const active = filtered.filter(s => !s.voided);
+  const total  = active.reduce((s,i) => s + Number(i.total), 0);
+  document.getElementById('hist-count').textContent   = `${active.length}${filtered.length !== active.length ? ` (ยกเลิก ${filtered.length-active.length})` : ''}`;
+  document.getElementById('hist-revenue').textContent = '฿' + total.toLocaleString();
+  document.getElementById('hist-avg').textContent     = active.length ? '฿' + Math.round(total/active.length).toLocaleString() : '฿0';
 }
 
 function showReceipt(id) {
-  const s = salesHistory.find(x=>x.id===id);
-  if(!s) return;
+  const s = salesHistory.find(x => x.id === id);
+  if (!s) return;
   const content = document.getElementById('receipt-detail-content');
-  const detail = s.cartDetail || s.items.map(name=>{const it=menuItems.find(m=>m.name===name);return{name,price:it?it.price:0,qty:1};});
+  const detail  = s.cartDetail || s.items.map(name => {
+    const it = menuItems.find(m => m.name === name);
+    return { name, price: it ? it.price : 0, qty: 1 };
+  });
+
+  const isVoided = s.voided === true;
+  const statusBadge = isVoided
+    ? `<div style="background:var(--red);color:white;text-align:center;border-radius:8px;padding:8px;font-size:14px;font-weight:800;margin-bottom:12px;">❌ บิลถูกยกเลิกแล้ว</div>`
+    : '';
+
   content.innerHTML = `
+    ${statusBadge}
     <div class="receipt-detail">
-      <div class="receipt-detail-row"><span>เลขที่</span><span style="font-weight:700">${s.id}</span></div>
+      <div class="receipt-detail-row">
+        <span>เลขที่</span>
+        <span style="font-weight:700;${isVoided?'text-decoration:line-through;color:var(--text3)':''}">${s.id}</span>
+      </div>
       <div class="receipt-detail-row"><span>วันที่</span><span>${s.date.toLocaleString('th-TH')}</span></div>
       <div class="receipt-detail-row"><span>พนักงาน</span><span>${s.staff}</span></div>
-      <div class="receipt-detail-row"><span>ชำระโดย</span><span>${s.method==='cash'?'💵 เงินสด':s.method==='transfer'?'📱 โอน':'📷 QR'}</span></div>
+      <div class="receipt-detail-row"><span>ชำระโดย</span>
+        <span>${s.method==='cash'?'💵 เงินสด':s.method==='transfer'?'📱 โอน':'📷 QR'}</span>
+      </div>
       <div style="margin:8px 0;border-top:1px solid var(--border);padding-top:8px;font-size:13px;color:var(--text3);font-weight:700;">รายการ</div>
-      ${detail.map(i=>`<div class="receipt-detail-row"><span>${i.name} ×${i.qty||1}</span><span>฿${i.price*(i.qty||1)}</span></div>`).join('')}
-      ${s.discount>0?`<div class="receipt-detail-row" style="color:var(--red2)"><span>ส่วนลด</span><span>-฿${s.discount}</span></div>`:''}
-      <div class="receipt-detail-total"><span>รวมทั้งหมด</span><span>฿${s.total}</span></div>
+      ${detail.map(i => `<div class="receipt-detail-row">
+        <span>${i.name} ×${i.qty||1}</span>
+        <span>฿${(Number(i.price)*(i.qty||1)).toLocaleString()}</span>
+      </div>`).join('')}
+      ${s.discount > 0 ? `<div class="receipt-detail-row" style="color:var(--red2)">
+        <span>ส่วนลด</span><span>-฿${s.discount}</span>
+      </div>` : ''}
+      <div class="receipt-detail-total">
+        <span>รวมทั้งหมด</span>
+        <span style="${isVoided?'text-decoration:line-through;color:var(--text3)':''}">฿${s.total.toLocaleString()}</span>
+      </div>
+      ${isVoided && s.voidedAt ? `<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:right;">ยกเลิกเมื่อ: ${new Date(s.voidedAt).toLocaleString('th-TH')}</div>` : ''}
     </div>`;
+
+  // Show/hide void button
+  const voidBtn = document.getElementById('void-bill-btn');
+  if (voidBtn) {
+    voidBtn.style.display = isVoided ? 'none' : 'flex';
+    voidBtn.onclick = () => voidReceipt(id);
+  }
+
   document.getElementById('receipt-modal').classList.add('open');
+}
+
+function voidReceipt(id) {
+  const s = salesHistory.find(x => x.id === id);
+  if (!s || s.voided) return;
+  if (!confirm(`❌ ยกเลิกบิล ${s.id} ยอด ฿${s.total.toLocaleString()}?\n\nบิลจะถูกยกเลิกและไม่นับในยอดขาย`)) return;
+
+  s.voided   = true;
+  s.voidedAt = new Date().toISOString();
+  saveAll();
+
+  // Sync void to Google Sheets
+  syncToSheets({ ...s, id: s.id + '-VOID', total: -s.total, items: ['[VOID] ' + s.items.join(', ')], method: 'void' });
+
+  closeModal('receipt-modal');
+  renderHistory();
+  showToast(`❌ ยกเลิกบิล ${s.id} แล้ว`);
 }
 
 // ============ EXPORT EXCEL ============
@@ -2598,6 +2671,7 @@ function renderExpense() {
       catLabel: cat.label,
     });
     saveAll();
+    syncExpenseToSheets(expenses[0]); // push to Sheets immediately
     showToast(`💸 บันทึก "${name}" ฿${amount.toLocaleString()}`);
     renderExpense(); // refresh
   };
@@ -3261,28 +3335,54 @@ async function saveSheetsUrl() {
 }
 
 async function syncToSheets(receipt) {
-  if (!sheetsWebhookUrl) return; // silent skip if not configured
+  if (!sheetsWebhookUrl) return;
   try {
     const payload = {
+      sheet:    'Sales',
       id:       receipt.id,
-      date:     receipt.date.toLocaleDateString('th-TH'),
-      time:     receipt.date.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
-      items:    receipt.items.join(', '),
+      date:     receipt.date instanceof Date ? receipt.date.toLocaleDateString('th-TH') : receipt.date,
+      time:     receipt.date instanceof Date ? receipt.date.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : '',
+      items:    Array.isArray(receipt.items) ? receipt.items.join(', ') : receipt.items,
       total:    receipt.total,
       discount: receipt.discount || 0,
-      method:   receipt.method === 'cash' ? 'เงินสด' : receipt.method === 'transfer' ? 'โอน' : 'QR Code',
+      method:   receipt.method === 'cash' ? 'เงินสด' : receipt.method === 'transfer' ? 'โอน' : receipt.method === 'void' ? 'ยกเลิก' : 'QR Code',
       staff:    receipt.staff,
     };
     await fetch(sheetsWebhookUrl, {
-      method: 'POST',
-      mode: 'no-cors',
+      method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    showToast('📊 ส่งข้อมูลขึ้น Google Sheets แล้ว');
+    showToast('📊 ส่งยอดขายขึ้น Sheets แล้ว');
   } catch(e) {
-    console.warn('Sheets sync failed:', e);
-    showToast('⚠️ Sheets sync ล้มเหลว ตรวจสอบ URL');
+    console.warn('Sheets sales sync failed:', e);
+    showToast('⚠️ Sheets sync ล้มเหลว');
+  }
+}
+
+async function syncExpenseToSheets(exp) {
+  if (!sheetsWebhookUrl) return;
+  try {
+    const d = exp.date instanceof Date ? exp.date : new Date(exp.date);
+    const payload = {
+      sheet:    'Expenses',
+      id:       String(exp.id),
+      date:     d.toLocaleDateString('th-TH'),
+      time:     d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      category: exp.catLabel || exp.cat || '',
+      name:     exp.name,
+      amount:   exp.amount,
+      staff:    currentStaff || '',
+    };
+    await fetch(sheetsWebhookUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    showToast('📊 ส่งค่าใช้จ่ายขึ้น Sheets แล้ว');
+  } catch(e) {
+    console.warn('Sheets expense sync failed:', e);
+    showToast('⚠️ Expense Sheets sync ล้มเหลว');
   }
 }
 
