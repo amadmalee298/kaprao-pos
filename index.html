@@ -233,34 +233,50 @@ if ('serviceWorker' in navigator) {
     display: flex;
     background: var(--card);
     border-top: 1px solid var(--border);
-    padding: 0 8px;
-    padding-bottom: env(safe-area-inset-bottom, 8px);
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 4px);
     flex-shrink: 0;
+    width: 100%;
+    overflow: hidden;
   }
 
   .nav-btn {
     flex: 1;
+    min-width: 0;           /* allow shrink */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px 4px;
-    gap: 4px;
+    padding: 8px 2px;
+    gap: 3px;
     cursor: pointer;
     border: none;
     background: transparent;
     color: var(--text3);
     font-family: inherit;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0;
     transition: color 0.15s;
-    border-radius: var(--radius-sm);
+    border-radius: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .nav-btn .nav-icon { font-size: 24px; transition: transform 0.15s; }
+  .nav-btn .nav-icon {
+    font-size: 22px;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
   .nav-btn.active { color: var(--orange2); }
-  .nav-btn.active .nav-icon { transform: scale(1.15); }
+  .nav-btn.active .nav-icon { transform: scale(1.12); }
   .nav-btn:active { opacity: 0.7; }
+
+  /* iPad landscape: larger nav */
+  @media (min-width: 768px) {
+    .nav-btn { font-size: 12px; padding: 10px 8px; gap: 4px; }
+    .nav-btn .nav-icon { font-size: 24px; }
+  }
 
   /* ============ POS ============ */
   #screen-pos {
@@ -1863,14 +1879,13 @@ if ('serviceWorker' in navigator) {
 <script>
 // ============ DATA ============
 let menuItems = [
-  { id: 1, name: 'กะเพราไก่',        emoji: '🍗', price: 60, cat: 'กะเพรา',    desc: 'ไก่สด ใบกะเพราหอม',      active: true },
-  { id: 2, name: 'กะเพราเนื้อ',      emoji: '🥩', price: 80, cat: 'กะเพรา',    desc: 'เนื้อวัวนุ่ม รสเข้มข้น',  active: true },
-  { id: 3, name: 'กะเพราทะเล',       emoji: '🦐', price: 90, cat: 'กะเพรา',    desc: 'กุ้ง หมึก หอย สดใหม่',    active: true },
-  { id: 4, name: 'กะเพราหมู',        emoji: '🐷', price: 65, cat: 'กะเพรา',    desc: 'หมูสับ รสกลมกล่อม',       active: true },
-  { id: 5, name: 'น้ำเปล่า',         emoji: '💧', price: 10, cat: 'เครื่องดื่ม', desc: 'น้ำดื่มสะอาด',           active: true },
-  { id: 6, name: 'น้ำอัดลม',         emoji: '🥤', price: 20, cat: 'เครื่องดื่ม', desc: 'เย็นชื่นใจ',             active: true },
-  { id: 7, name: 'น้ำส้ม',           emoji: '🍊', price: 25, cat: 'เครื่องดื่ม', desc: 'น้ำส้มคั้นสด',           active: true },
-  { id: 8, name: 'มะม่วงน้ำปลาหวาน', emoji: '🥭', price: 35, cat: 'ของหวาน',   desc: 'มะม่วงน้ำดอกไม้',        active: true },
+  { id: 1, name: 'กะเพราไก่',   emoji: '🍗', price: 60, cat: 'กะเพรา',     desc: 'ไก่สด ใบกะเพราหอม',     active: true },
+  { id: 2, name: 'กะเพราเนื้อ', emoji: '🥩', price: 80, cat: 'กะเพรา',     desc: 'เนื้อวัวนุ่ม รสเข้มข้น', active: true },
+  { id: 3, name: 'กะเพราทะเล',  emoji: '🦐', price: 90, cat: 'กะเพรา',     desc: 'กุ้ง หมึก หอย สดใหม่',   active: true },
+  { id: 5, name: 'น้ำเปล่า',    emoji: '💧', price: 10, cat: 'เครื่องดื่ม', desc: 'น้ำดื่มสะอาด',           active: true },
+  { id: 6, name: 'น้ำอัดลม',    emoji: '🥤', price: 20, cat: 'เครื่องดื่ม', desc: 'เย็นชื่นใจ',             active: true },
+  { id: 7, name: 'น้ำส้ม',      emoji: '🍊', price: 25, cat: 'เครื่องดื่ม', desc: 'น้ำส้มคั้นสด',           active: true },
+  { id: 8, name: 'มะม่วงน้ำปลาหวาน', emoji: '🥭', price: 35, cat: 'ของหวาน', desc: 'มะม่วงน้ำดอกไม้',    active: true },
 ];
 
 let cart = [];
@@ -1939,7 +1954,7 @@ let staffList = [
 function generateDemoHistory() {
   const methods = ['cash','transfer','qr'];
   const now = new Date();
-  const items = ['กะเพราไก่','กะเพราเนื้อ','กะเพราทะเล','กะเพราหมู'];
+  const items = ['กะเพราไก่','กะเพราเนื้อ','กะเพราทะเล'];
   for(let i = 0; i < 18; i++) {
     const d = new Date(now);
     d.setHours(now.getHours() - Math.floor(Math.random()*72));
@@ -1966,6 +1981,13 @@ function generateDemoHistory() {
 // ============ INIT ============
 loadAll();
 
+// ── Purge กะเพราหมู (id=4) from stored menus if it exists ──
+const pork = menuItems.findIndex(m => m.id === 4 && m.name === 'กะเพราหมู');
+if (pork >= 0) {
+  menuItems.splice(pork, 1);
+  localStorage.setItem(LS.MENUS, JSON.stringify(menuItems));
+}
+
 // First run: seed menus ถ้า localStorage ว่างเปล่า
 if (!localStorage.getItem(LS.MENUS)) {
   localStorage.setItem(LS.MENUS, JSON.stringify(menuItems));
@@ -1976,6 +1998,24 @@ if (salesHistory.length === 0 && !localStorage.getItem('kp_seeded')) {
   generateDemoHistory();
   localStorage.setItem('kp_seeded', '1');
 }
+
+// ── Fix 2: listen for localStorage changes from other tabs ──
+// (same-origin tabs only — cross-device needs a backend)
+window.addEventListener('storage', (e) => {
+  const watched = [LS.HISTORY, LS.MENUS, LS.ORDER, LS.EXPENSES, LS.STAFF];
+  if (watched.includes(e.key)) {
+    loadAll(); // reload all data
+    // Re-render whichever screen is active
+    const active = document.querySelector('.screen.active');
+    if (!active) return;
+    const id = active.id;
+    if (id === 'screen-pos')       renderMenu();
+    if (id === 'screen-history')   renderHistory();
+    if (id === 'screen-expense')   renderExpense();
+    if (id === 'screen-dashboard') renderDashboard();
+    if (id === 'screen-settings')  renderSettings();
+  }
+});
 
 // ============ LOGIN ============
 function selectStaff(btn, name) {
