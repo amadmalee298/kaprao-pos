@@ -1951,13 +1951,9 @@ function loadAll() {
     }
     const rawMenus = localStorage.getItem(LS.MENUS);
     if (rawMenus) {
-      const saved = JSON.parse(rawMenus);
-      // Merge saved prices back into default menuItems (preserves new items too)
-      saved.forEach(sm => {
-        const idx = menuItems.findIndex(m => m.id === sm.id);
-        if (idx >= 0) menuItems[idx] = {...menuItems[idx], ...sm};
-        else menuItems.push(sm);
-      });
+      // Full replace — ใช้ข้อมูลจาก localStorage ทั้งหมด ไม่ merge กับ default
+      // (ถ้า merge จะทำให้เมนูที่ลบกลับมาใหม่ทุก refresh)
+      menuItems = JSON.parse(rawMenus);
     }
     const rawOrder = localStorage.getItem(LS.ORDER);
     if (rawOrder) orderNum = JSON.parse(rawOrder);
@@ -2006,8 +2002,15 @@ function generateDemoHistory() {
   saveAll(); // persist demo data
 }
 
-// Load persisted data; seed demo ONLY on very first run ever
+// ============ INIT ============
 loadAll();
+
+// First run: seed menus ถ้า localStorage ว่างเปล่า
+if (!localStorage.getItem(LS.MENUS)) {
+  localStorage.setItem(LS.MENUS, JSON.stringify(menuItems));
+}
+
+// First run: seed demo history ครั้งเดียว
 if (salesHistory.length === 0 && !localStorage.getItem('kp_seeded')) {
   generateDemoHistory();
   localStorage.setItem('kp_seeded', '1');
