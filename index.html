@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="กะเพรา POS">
@@ -46,6 +46,17 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.warn('[PWA] SW registration failed:', err));
   });
 }
+
+// ── iPad Home Screen height fix ──
+// Safari in standalone mode sometimes miscalculates 100dvh
+function fixHeight() {
+  const vh = window.innerHeight;
+  document.documentElement.style.setProperty('--real-vh', vh + 'px');
+  document.body.style.height = vh + 'px';
+}
+fixHeight();
+window.addEventListener('resize', fixHeight);
+window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
 </script>
 
 <!-- Fonts -->
@@ -81,19 +92,36 @@ if ('serviceWorker' in navigator) {
     --radius-sm: 10px;
   }
 
+  html {
+    height: -webkit-fill-available;
+    height: 100%;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   body {
     font-family: 'Noto Sans Thai', 'Sarabun', sans-serif;
     background: var(--bg);
     color: var(--text);
+    /* iPad Home Screen fix: use fill-available then fall back */
+    height: 100vh;
+    height: -webkit-fill-available;
     height: 100dvh;
     overflow: hidden;
     user-select: none;
+    display: flex;
+    flex-direction: column;
   }
 
   /* ============ SCREENS ============ */
-  .screen { display: none; height: 100dvh; flex-direction: column; overflow: hidden; }
+  .screen {
+    display: none;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
   .screen.active { display: flex; }
 
   /* ============ LOGIN ============ */
@@ -233,21 +261,24 @@ if ('serviceWorker' in navigator) {
     display: flex;
     background: var(--card);
     border-top: 1px solid var(--border);
-    padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 4px);
+    /* Safe area for iPhone X notch + iPad Home Screen */
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px);
+    padding-left:  env(safe-area-inset-left,  0px);
+    padding-right: env(safe-area-inset-right, 0px);
     flex-shrink: 0;
     width: 100%;
-    overflow: hidden;
+    /* Extend bg into safe area zone so no gap shows */
+    box-shadow: 0 40px 0 40px var(--card);
   }
 
   .nav-btn {
     flex: 1;
-    min-width: 0;           /* allow shrink */
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 8px 2px;
+    padding: 10px 2px 8px;
     gap: 3px;
     cursor: pointer;
     border: none;
@@ -262,20 +293,22 @@ if ('serviceWorker' in navigator) {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    -webkit-tap-highlight-color: transparent;
   }
   .nav-btn .nav-icon {
     font-size: 22px;
     transition: transform 0.15s;
     flex-shrink: 0;
+    line-height: 1;
   }
   .nav-btn.active { color: var(--orange2); }
   .nav-btn.active .nav-icon { transform: scale(1.12); }
   .nav-btn:active { opacity: 0.7; }
 
-  /* iPad landscape: larger nav */
+  /* iPad portrait + landscape */
   @media (min-width: 768px) {
-    .nav-btn { font-size: 12px; padding: 10px 8px; gap: 4px; }
-    .nav-btn .nav-icon { font-size: 24px; }
+    .nav-btn { font-size: 12px; padding: 12px 8px 10px; gap: 4px; }
+    .nav-btn .nav-icon { font-size: 26px; }
   }
 
   /* ============ POS ============ */
