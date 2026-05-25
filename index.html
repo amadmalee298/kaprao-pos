@@ -1474,7 +1474,26 @@ window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
   .expense-summary-label { font-size: 13px; color: var(--text3); font-weight: 700; }
   .expense-summary-amount { font-size: 22px; font-weight: 800; color: var(--red2); }
 
-  /* ============ EXPENSE IMAGE ============ */
+  /* ============ PRINTER / BACKUP ============ */
+  .printer-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px; font-weight: 700;
+  }
+  .printer-status.connected { background: rgba(39,174,96,0.15); color: var(--green2); }
+  .printer-status.disconnected { background: rgba(90,56,32,0.3); color: var(--text3); }
+  .print-btn {
+    background: linear-gradient(135deg,#1a3a6a,#2980b9);
+    border: none; border-radius: var(--radius-sm);
+    padding: 14px; color: white; font-size: 16px; font-weight: 800;
+    cursor: pointer; font-family: inherit; width: 100%;
+    box-shadow: 0 4px 16px rgba(41,128,185,0.3);
+  }
+  .print-btn:active { opacity: 0.85; }
+  .print-btn:disabled { background: var(--bg3); color: var(--text3); box-shadow: none; }
+
+
   .exp-img-upload-area {
     border: 2px dashed var(--border2);
     border-radius: var(--radius-sm);
@@ -1905,6 +1924,64 @@ window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
         💾 บันทึก
       </button>
     </div>
+  </div>
+</div>
+
+<!-- Printer Modal -->
+<div class="modal-overlay" id="printer-modal">
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-title">🖨️ เครื่องพิมพ์ใบเสร็จ</div>
+    <div id="printer-status-display" class="printer-status disconnected">⚫ ยังไม่ได้เชื่อมต่อ</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;">
+      <button class="print-btn" onclick="connectBluetoothPrinter()" id="bt-connect-btn">
+        📶 เชื่อมต่อ Bluetooth Printer
+      </button>
+      <div style="font-size:12px;color:var(--text3);text-align:center;">รองรับ ESC/POS: Epson, Star, Xprinter, GOOJPRT</div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <div class="modal-label">ทดสอบพิมพ์</div>
+        <button class="print-btn" onclick="printTestPage()" style="background:linear-gradient(135deg,var(--orange),var(--orange2));">
+          🖨️ พิมพ์หน้าทดสอบ
+        </button>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;font-size:12px;color:var(--text3);line-height:1.8;">
+        <strong style="color:var(--orange2);">วิธีใช้:</strong><br>
+        1. เปิดเครื่องพิมพ์ Bluetooth<br>
+        2. กด "เชื่อมต่อ Bluetooth Printer"<br>
+        3. เลือกเครื่องพิมพ์จากรายการ<br>
+        4. หลังเชื่อมต่อ ใบเสร็จจะพิมพ์อัตโนมัติหลังชำระเงิน
+      </div>
+    </div>
+    <button class="modal-cancel" onclick="closeModal('printer-modal')" style="width:100%;margin-top:16px;">ปิด</button>
+  </div>
+</div>
+
+<!-- Backup Modal -->
+<div class="modal-overlay" id="backup-modal">
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-title">💾 Backup & Export</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <button class="modal-confirm" onclick="exportJSON()" style="background:var(--orange);display:flex;align-items:center;justify-content:center;gap:8px;">
+        📦 Export JSON (ข้อมูลทั้งหมด)
+      </button>
+      <button class="modal-confirm" onclick="importJSON()" style="background:var(--card2);color:var(--text2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;gap:8px;">
+        📂 Import JSON (กู้คืนข้อมูล)
+      </button>
+      <input type="file" id="import-json-input" accept=".json" style="display:none;" onchange="doImportJSON(this)">
+      <div style="border-top:1px solid var(--border);padding-top:12px;">
+        <button class="modal-confirm" onclick="backupToSheets()" style="background:var(--green2);display:flex;align-items:center;justify-content:center;gap:8px;">
+          📊 Backup ขึ้น Google Sheets ทันที
+        </button>
+      </div>
+      <div id="backup-auto-status" style="background:var(--bg3);border-radius:8px;padding:12px;font-size:12px;color:var(--text3);line-height:1.8;">
+        <strong style="color:var(--orange2);">Auto Backup:</strong><br>
+        <span id="last-backup-time">ยังไม่เคย backup</span><br>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer;">
+          <div class="toggle-btn on" id="auto-backup-toggle" onclick="toggleAutoBackup(this)"></div>
+          <span>Auto backup เมื่อเปิดแอปทุกวัน</span>
+        </label>
+      </div>
+    </div>
+    <button class="modal-cancel" onclick="closeModal('backup-modal')" style="width:100%;margin-top:16px;">ปิด</button>
   </div>
 </div>
 
@@ -2424,6 +2501,7 @@ function confirmPayment() {
   clearCart();
   document.getElementById('discount-input').value = '';
   showToast('✅ ชำระเงินสำเร็จ! ขอบคุณครับ');
+  printReceipt(receipt); // auto-print if printer connected
 }
 
 function closeModal(id) {
@@ -2783,8 +2861,53 @@ function renderExpense() {
   nameInput.placeholder = 'เช่น ซื้อผัก หมู ไก่';
   form.appendChild(nameInput);
 
-  // Amount input with +/- stepper
-  const amtLabel = document.createElement('div');
+  // ── Quantity + Unit row ──
+  const qtyLabel = document.createElement('div');
+  qtyLabel.className = 'expense-input-label';
+  qtyLabel.textContent = 'จำนวนสินค้า (ไม่บังคับ)';
+  form.appendChild(qtyLabel);
+
+  const qtyRow = document.createElement('div');
+  qtyRow.style.cssText = 'display:flex;gap:8px;align-items:center;';
+
+  // Qty minus
+  const qtyMinus = document.createElement('button');
+  qtyMinus.textContent = '−';
+  qtyMinus.style.cssText = 'width:48px;height:48px;border-radius:10px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:24px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
+  qtyMinus.onclick = () => { const v = parseFloat(qtyInput.value)||0; qtyInput.value = Math.max(0, parseFloat((v-0.5).toFixed(2))); };
+
+  // Qty input
+  const qtyInput = document.createElement('input');
+  qtyInput.id = 'exp-qty';
+  qtyInput.type = 'number';
+  qtyInput.min = '0';
+  qtyInput.step = '0.5';
+  qtyInput.value = '1';
+  qtyInput.style.cssText = 'flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--orange2);font-size:20px;font-weight:800;font-family:inherit;text-align:center;outline:none;';
+
+  // Qty plus
+  const qtyPlus = document.createElement('button');
+  qtyPlus.textContent = '+';
+  qtyPlus.style.cssText = 'width:48px;height:48px;border-radius:10px;border:none;background:var(--orange);color:white;font-size:24px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
+  qtyPlus.onclick = () => { const v = parseFloat(qtyInput.value)||0; qtyInput.value = parseFloat((v+0.5).toFixed(2)); };
+
+  // Unit selector
+  const unitSel = document.createElement('select');
+  unitSel.id = 'exp-unit';
+  unitSel.style.cssText = 'background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 8px;color:var(--text);font-size:15px;font-family:inherit;outline:none;flex-shrink:0;';
+  ['ชิ้น','กก.','ก.','ลิตร','มล.','แพ็ค','ลัง','ถุง','กล่อง','โหล','มัด','หน่วย'].forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u; opt.textContent = u;
+    unitSel.appendChild(opt);
+  });
+
+  qtyRow.appendChild(qtyMinus);
+  qtyRow.appendChild(qtyInput);
+  qtyRow.appendChild(unitSel);
+  qtyRow.appendChild(qtyPlus);
+  form.appendChild(qtyRow);
+
+
   amtLabel.className = 'expense-input-label';
   amtLabel.textContent = 'จำนวนเงิน (฿)';
   form.appendChild(amtLabel);
@@ -2873,6 +2996,8 @@ function renderExpense() {
   saveBtn.onclick = () => {
     const name   = nameInput.value.trim();
     const amount = parseFloat(amtInput.value) || 0;
+    const qty    = parseFloat(document.getElementById('exp-qty')?.value) || 1;
+    const unit   = document.getElementById('exp-unit')?.value || 'ชิ้น';
     const cat    = EXP_CATS.find(c => c.id === selectedExpCat);
     if (!name)       { showToast('⚠️ กรุณาใส่รายละเอียด'); nameInput.focus(); return; }
     if (amount <= 0) { showToast('⚠️ กรุณาใส่จำนวนเงิน'); amtInput.focus(); return; }
@@ -2880,7 +3005,10 @@ function renderExpense() {
       id: Date.now(),
       date: new Date(),
       name,
+      qty,
+      unit,
       amount,
+      pricePerUnit: qty > 0 ? Math.round(amount / qty * 100) / 100 : amount,
       cat: cat.id,
       catIcon: cat.icon,
       catLabel: cat.label,
@@ -2924,7 +3052,11 @@ function renderExpense() {
     infoEl.className = 'expense-list-info';
     infoEl.innerHTML = `
       <div class="expense-list-name">${exp.name}</div>
-      <div class="expense-list-meta">${exp.catLabel || exp.cat} · ${timeStr}</div>`;
+      <div class="expense-list-meta">
+        ${exp.catLabel || exp.cat}
+        ${exp.qty ? ` · ${exp.qty} ${exp.unit || 'ชิ้น'} · ฿${(exp.pricePerUnit||0).toLocaleString()}/${exp.unit||'ชิ้น'}` : ''}
+        · ${timeStr}
+      </div>`;
 
     const amtEl = document.createElement('div');
     amtEl.className = 'expense-list-amount';
@@ -2964,7 +3096,218 @@ function renderExpense() {
   });
 }
 
-// ============ EXPENSE IMAGE HANDLERS (imgbb) ============
+// ============ ESC/POS BLUETOOTH PRINTER ============
+let btPrinterDevice = null;
+let btPrinterChar   = null;
+
+async function connectBluetoothPrinter() {
+  if (!navigator.bluetooth) {
+    showToast('⚠️ เบราว์เซอร์นี้ไม่รองรับ Bluetooth (ใช้ Chrome/Edge)');
+    return;
+  }
+  try {
+    showToast('🔍 กำลังค้นหาเครื่องพิมพ์...');
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }],
+      optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'],
+    }).catch(() =>
+      // Fallback: any device
+      navigator.bluetooth.requestDevice({ acceptAllDevices: true,
+        optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] })
+    );
+    const server  = await device.gatt.connect();
+    const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
+    btPrinterChar = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
+    btPrinterDevice = device;
+
+    device.addEventListener('gattserverdisconnected', () => {
+      btPrinterDevice = null; btPrinterChar = null;
+      updatePrinterStatus();
+      showToast('🖨️ เครื่องพิมพ์ตัดการเชื่อมต่อ');
+    });
+    updatePrinterStatus();
+    closeModal('printer-modal');
+    showToast('✅ เชื่อมต่อ ' + device.name + ' สำเร็จ');
+  } catch(e) {
+    console.warn('BT Printer error:', e);
+    showToast('❌ เชื่อมต่อไม่สำเร็จ: ' + e.message);
+  }
+}
+
+function updatePrinterStatus() {
+  const el = document.getElementById('printer-status-display');
+  if (!el) return;
+  if (btPrinterDevice && btPrinterDevice.gatt.connected) {
+    el.className = 'printer-status connected';
+    el.textContent = '🟢 เชื่อมต่อแล้ว: ' + btPrinterDevice.name;
+  } else {
+    el.className = 'printer-status disconnected';
+    el.textContent = '⚫ ยังไม่ได้เชื่อมต่อ';
+  }
+}
+
+function encodeESCPOS(lines) {
+  // ESC/POS command builder
+  const ESC  = 0x1B, GS = 0x1D;
+  const init  = [ESC, 0x40];                            // Initialize
+  const bold  = [ESC, 0x45, 0x01];                      // Bold on
+  const nobold= [ESC, 0x45, 0x00];                      // Bold off
+  const center= [ESC, 0x61, 0x01];                      // Center align
+  const left  = [ESC, 0x61, 0x00];                      // Left align
+  const cut   = [GS,  0x56, 0x00];                      // Full cut
+  const feed  = [ESC, 0x64, 0x04];                      // Feed 4 lines
+
+  const enc = new TextEncoder();
+  const bytes = [...init, ...center, ...bold];
+  lines.forEach(l => {
+    if (l.type === 'center') bytes.push(...center);
+    if (l.type === 'left')   bytes.push(...left);
+    if (l.bold)  bytes.push(...bold);
+    if (!l.bold) bytes.push(...nobold);
+    bytes.push(...enc.encode(l.text + '\n'));
+  });
+  bytes.push(...feed, ...cut);
+  return new Uint8Array(bytes);
+}
+
+async function printReceipt(receipt) {
+  if (!btPrinterChar) return; // no printer connected, skip silently
+  const now = new Date();
+  const lines = [
+    { text: '================================', type:'center', bold:false },
+    { text: '        กะเพรา POS', type:'center', bold:true },
+    { text: '================================', type:'center', bold:false },
+    { text: `เลขที่: ${receipt.id}`,             type:'left', bold:false },
+    { text: `วันที่: ${now.toLocaleString('th-TH')}`, type:'left', bold:false },
+    { text: `พนักงาน: ${receipt.staff}`,         type:'left', bold:false },
+    { text: '--------------------------------', type:'left', bold:false },
+    ...(receipt.cartDetail||[]).map(i => ({
+      text: `${i.name} x${i.qty}  ฿${(Number(i.price)*Number(i.qty)).toLocaleString()}`,
+      type:'left', bold:false
+    })),
+    { text: '--------------------------------', type:'left', bold:false },
+    ...(receipt.discount>0 ? [{ text:`ส่วนลด: -฿${receipt.discount}`, type:'left', bold:false }] : []),
+    { text: `รวม: ฿${receipt.total.toLocaleString()}`, type:'center', bold:true },
+    { text: `ชำระ: ${receipt.method==='cash'?'เงินสด':receipt.method==='transfer'?'โอน':'QR'}`, type:'center', bold:false },
+    { text: '================================', type:'center', bold:false },
+    { text: '    ขอบคุณที่ใช้บริการ! 🌶️', type:'center', bold:false },
+    { text: '================================', type:'center', bold:false },
+  ];
+  try {
+    const data = encodeESCPOS(lines);
+    // Write in 20-byte chunks (BLE MTU limit)
+    for (let i = 0; i < data.length; i += 20) {
+      await btPrinterChar.writeValue(data.slice(i, i+20));
+    }
+  } catch(e) { console.warn('Print failed:', e); showToast('⚠️ พิมพ์ไม่สำเร็จ'); }
+}
+
+async function printTestPage() {
+  if (!btPrinterChar) { showToast('⚠️ กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน'); return; }
+  await printReceipt({
+    id:'#TEST', cartDetail:[{name:'ทดสอบการพิมพ์',qty:1,price:0}],
+    total:0, discount:0, method:'cash', staff:currentStaff
+  });
+  showToast('🖨️ พิมพ์หน้าทดสอบแล้ว');
+}
+
+// ============ BACKUP & EXPORT ============
+const LS_BACKUP = { AUTO:'kp_auto_backup', LAST_DATE:'kp_last_backup_date' };
+
+function openBackupModal() {
+  const lastDate = localStorage.getItem(LS_BACKUP.LAST_DATE);
+  const el = document.getElementById('last-backup-time');
+  if (el) el.textContent = lastDate ? 'Backup ล่าสุด: ' + lastDate : 'ยังไม่เคย backup';
+  const autoOn = localStorage.getItem(LS_BACKUP.AUTO) !== 'false';
+  const tog = document.getElementById('auto-backup-toggle');
+  if (tog) tog.classList.toggle('on', autoOn);
+  document.getElementById('backup-modal').classList.add('open');
+}
+
+function exportJSON() {
+  const data = {
+    exportedAt:   new Date().toISOString(),
+    version:      '2.0',
+    salesHistory: salesHistory.map(s => ({...s, date: s.date instanceof Date ? s.date.toISOString() : s.date})),
+    expenses:     expenses.map(e => ({...e, date: e.date instanceof Date ? e.date.toISOString() : e.date})),
+    menuItems,
+    staffList,
+    orderNum,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `krapaoPOS_backup_${new Date().toLocaleDateString('th-TH').replace(/\//g,'-')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  localStorage.setItem(LS_BACKUP.LAST_DATE, new Date().toLocaleString('th-TH'));
+  showToast('✅ Export JSON สำเร็จ');
+  closeModal('backup-modal');
+}
+
+function importJSON() {
+  document.getElementById('import-json-input').click();
+}
+
+function doImportJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.salesHistory) throw new Error('ไฟล์ไม่ถูกต้อง');
+      if (!confirm(`📂 กู้คืนข้อมูลจาก ${data.exportedAt}?\n\nจะแทนที่ข้อมูลปัจจุบันทั้งหมด`)) return;
+      salesHistory = (data.salesHistory||[]).map(s=>({...s,date:new Date(s.date)}));
+      expenses     = (data.expenses||[]).map(e=>({...e,date:new Date(e.date)}));
+      if (data.menuItems) menuItems = data.menuItems;
+      if (data.staffList) staffList = data.staffList;
+      if (data.orderNum)  orderNum  = data.orderNum;
+      saveAll();
+      refreshLoginStaffGrid();
+      renderMenu();
+      showToast('✅ กู้คืนข้อมูลสำเร็จ!');
+      closeModal('backup-modal');
+    } catch(err) {
+      showToast('❌ ไฟล์ไม่ถูกต้อง: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function toggleAutoBackup(btn) {
+  btn.classList.toggle('on');
+  const isOn = btn.classList.contains('on');
+  localStorage.setItem(LS_BACKUP.AUTO, isOn ? 'true' : 'false');
+  showToast(isOn ? '✅ เปิด Auto backup แล้ว' : '⛔ ปิด Auto backup');
+}
+
+function runAutoBackupIfNeeded() {
+  const autoOn = localStorage.getItem(LS_BACKUP.AUTO) !== 'false';
+  if (!autoOn) return;
+  const today = new Date().toDateString();
+  const last  = localStorage.getItem('kp_last_auto_backup_date');
+  if (last === today) return; // already backed up today
+  // Auto backup = push all history to Sheets
+  backupToSheets();
+  localStorage.setItem('kp_last_auto_backup_date', today);
+}
+
+async function backupToSheets() {
+  if (!sheetsWebhookUrl) { showToast('⚠️ ยังไม่ได้ตั้งค่า Google Sheets'); return; }
+  let count = 0;
+  for (const s of salesHistory) {
+    try {
+      await syncToSheets(s);
+      count++;
+    } catch(e) { console.warn('backup row failed', e); }
+  }
+  localStorage.setItem(LS_BACKUP.LAST_DATE, new Date().toLocaleString('th-TH'));
+  showToast(`✅ Backup ${count} ออเดอร์ขึ้น Sheets แล้ว`);
+  closeModal('backup-modal');
+}
 let imgurClientId = localStorage.getItem('kp_imgur_client_id') || ''; // key name kept for backward compat
 
 function onExpImageSelected(input) {
@@ -3496,9 +3839,16 @@ function renderSettings() {
   const secSys = _makeSection('ระบบ');
 
   // Printer row
-  secSys.appendChild(_sysRow('🖨️','เครื่องปริ้นท์','ไม่ได้เชื่อมต่อ',
-    _btn('เชื่อมต่อ','var(--card2)','1px solid var(--border2)','var(--text3)',
-      () => showToast('🔌 กำลังเชื่อมต่อ...'))));
+  const printerLabel = btPrinterDevice?.gatt?.connected
+    ? '🟢 เชื่อมต่อ: ' + btPrinterDevice.name
+    : '⚫ ยังไม่ได้เชื่อมต่อ';
+  secSys.appendChild(_sysRow('🖨️','เครื่องพิมพ์ใบเสร็จ (BT)', printerLabel,
+    _btn('⚙️ ตั้งค่า','var(--card2)','1px solid var(--border2)','var(--text2)',
+      () => { updatePrinterStatus(); document.getElementById('printer-modal').classList.add('open'); })));
+
+  // Backup row
+  secSys.appendChild(_sysRow('💾','Backup & Export','JSON / Google Sheets / Auto backup',
+    _btn('💾 จัดการ','var(--orange)','none','white', openBackupModal)));
 
   // Google Sheets row
   const sheetsStatus = sheetsWebhookUrl ? '✅ เชื่อมต่อแล้ว' : 'ยังไม่ได้ตั้งค่า';
@@ -3923,6 +4273,7 @@ function showToast(msg) {
 renderMenu();
 refreshLoginStaffGrid();
 document.getElementById('order-num').textContent = `ออเดอร์ #${String(orderNum).padStart(3,'0')}`;
+runAutoBackupIfNeeded(); // backup to Sheets if new day
 
 </script>
 </body>
