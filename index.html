@@ -1715,10 +1715,10 @@ window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
   <button class="nav-btn" id="nav-expense" onclick="goTo('expense')">
     <span class="nav-icon">💸</span>รายจ่าย
   </button>
-  <button class="nav-btn" id="nav-dashboard" onclick="goTo('dashboard')">
+  <button class="nav-btn" id="nav-dashboard" onclick="goTo('dashboard')" style="display:none;">
     <span class="nav-icon">📊</span>Dashboard
   </button>
-  <button class="nav-btn" id="nav-settings" onclick="goTo('settings')">
+  <button class="nav-btn" id="nav-settings" onclick="goTo('settings')" style="display:none;">
     <span class="nav-icon">⚙️</span>จัดการ
   </button>
 </nav>
@@ -2011,26 +2011,27 @@ window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
 
 <!-- Google Sheets Modal -->
 <div class="modal-overlay" id="sheets-modal">
-  <div class="modal-box" style="max-width:480px;">
+  <div class="modal-box" style="max-width:500px;max-height:88dvh;overflow-y:auto;">
     <div class="modal-title">📊 เชื่อมต่อ Google Sheets</div>
-    <div style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.8;">
-      วิธีตั้งค่า:<br>
-      1. เปิด Google Sheets → Extensions → Apps Script<br>
-      2. วาง script จาก <span style="color:var(--orange2);">bit.ly/sheets-webhook</span><br>
-      3. Deploy → Web App → Copy URL มาวางด้านล่าง
-    </div>
-    <div class="modal-label">Google Apps Script Web App URL</div>
-    <input id="sheets-url-input" type="url"
-      placeholder="https://script.google.com/macros/s/..."
-      style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:16px;">
-    <div id="sheets-status" style="font-size:12px;color:var(--text3);margin-bottom:16px;min-height:16px;"></div>
-    <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeModal('sheets-modal')">ยกเลิก</button>
-      <button class="modal-confirm" style="background:var(--green2);" onclick="saveSheetsUrl()">✅ บันทึก</button>
-    </div>
-    <div style="margin-top:16px;background:var(--bg3);border-radius:10px;padding:14px;font-size:11px;color:var(--text3);line-height:1.8;">
-      <strong style="color:var(--orange2);">Apps Script สำหรับวาง:</strong><br>
-      <code style="color:var(--text2);font-size:10px;white-space:pre-wrap;">function doPost(e){
+
+    <!-- Steps -->
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;font-size:13px;color:var(--text2);line-height:2;">
+        <div style="font-size:14px;font-weight:800;color:var(--orange2);margin-bottom:8px;">📋 ขั้นตอนการตั้งค่า</div>
+        <b style="color:var(--orange2);">Step 1</b> — เปิด <a href="https://sheets.google.com" target="_blank" style="color:#4fc3f7;">sheets.google.com</a> สร้าง Spreadsheet ใหม่<br>
+        <b style="color:var(--orange2);">Step 2</b> — คลิก <b>Extensions → Apps Script</b><br>
+        <b style="color:var(--orange2);">Step 3</b> — ลบโค้ดเดิมออก แล้ววางโค้ดด้านล่างแทน<br>
+        <b style="color:var(--orange2);">Step 4</b> — คลิก <b>Deploy → New deployment</b><br>
+        <b style="color:var(--orange2);">Step 5</b> — Type: <b>Web app</b> · Execute as: <b>Me</b> · Access: <b>Anyone</b><br>
+        <b style="color:var(--orange2);">Step 6</b> — กด <b>Deploy</b> → Copy URL มาวางด้านล่าง
+      </div>
+
+      <!-- Apps Script code box -->
+      <div style="background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;position:relative;">
+        <div style="font-size:11px;color:#8b949e;margin-bottom:6px;font-weight:700;">Apps Script Code:</div>
+        <button onclick="copyAppsScript()" style="position:absolute;top:8px;right:8px;background:var(--orange);border:none;border-radius:6px;padding:4px 10px;color:white;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">Copy</button>
+        <pre id="apps-script-code" style="color:#e6edf3;font-size:10px;line-height:1.6;overflow-x:auto;white-space:pre;margin:0;font-family:monospace;">function doPost(e){
   var data=JSON.parse(e.postData.contents);
   var ss=SpreadsheetApp.getActiveSpreadsheet();
   var sheetName=data.sheet||"Sales";
@@ -2043,13 +2044,37 @@ window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
     sheet.appendRow(["ID","วันที่","เวลา","หมวด","รายการ","จำนวน","พนักงาน","รูปใบเสร็จ"]);
 
   if(sheetName==="Sales")
-    sheet.appendRow([data.id,data.date,data.time,data.items,data.total,data.discount,data.method,data.staff]);
+    sheet.appendRow([data.id,data.date,data.time,data.items,
+                     data.total,data.discount,data.method,data.staff]);
 
   if(sheetName==="Expenses")
-    sheet.appendRow([data.id,data.date,data.time,data.category,data.name,data.amount,data.staff,data.imageUrl||""]);
+    sheet.appendRow([data.id,data.date,data.time,data.category,
+                     data.name,data.amount,data.staff,data.imageUrl||""]);
 
   return ContentService.createTextOutput("OK");
-}</code>
+}</pre>
+      </div>
+
+      <!-- URL input -->
+      <div>
+        <div class="modal-label">Web App URL (จาก Step 6)</div>
+        <input id="sheets-url-input" type="url"
+          placeholder="https://script.google.com/macros/s/.../exec"
+          style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:12px;font-family:inherit;outline:none;">
+        <div id="sheets-status" style="font-size:11px;color:var(--text3);margin-top:6px;">
+          ${sheetsWebhookUrl ? '✅ URL ตั้งค่าแล้ว' : '⚠️ ยังไม่ได้ตั้งค่า'}
+        </div>
+      </div>
+
+      <!-- Test button -->
+      <button onclick="testSheetsConnection()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+        🔗 ทดสอบการเชื่อมต่อ
+      </button>
+    </div>
+
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal('sheets-modal')">ยกเลิก</button>
+      <button class="modal-confirm" style="background:var(--green2);" onclick="saveSheetsUrl()">✅ บันทึก URL</button>
     </div>
   </div>
 </div>
@@ -2908,6 +2933,8 @@ function renderExpense() {
   form.appendChild(qtyRow);
 
 
+  // ── Amount with stepper ──
+  const amtLabel = document.createElement('div');
   amtLabel.className = 'expense-input-label';
   amtLabel.textContent = 'จำนวนเงิน (฿)';
   form.appendChild(amtLabel);
@@ -4059,6 +4086,32 @@ function cancelOrder() {
 
 // ── Google Sheets Sync ──
 let sheetsWebhookUrl = localStorage.getItem('kp_sheets_url') || '';
+
+function copyAppsScript() {
+  const code = document.getElementById('apps-script-code')?.textContent || '';
+  navigator.clipboard.writeText(code.trim())
+    .then(() => showToast('✅ Copy โค้ดแล้ว! วางใน Apps Script ได้เลย'))
+    .catch(() => showToast('⚠️ กรุณา copy โค้ดด้วยตัวเอง'));
+}
+
+async function testSheetsConnection() {
+  const url = document.getElementById('sheets-url-input')?.value?.trim();
+  if (!url) { showToast('⚠️ กรุณาใส่ URL ก่อน'); return; }
+  showToast('🔗 กำลังทดสอบ...');
+  try {
+    await fetch(url, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sheet:'Sales', id:'#TEST', date:'ทดสอบ', time:'00:00',
+        items:'ทดสอบการเชื่อมต่อ', total:0, discount:0, method:'test', staff:'System'
+      }),
+    });
+    showToast('✅ ส่งข้อมูลทดสอบแล้ว ตรวจสอบใน Google Sheets');
+  } catch(e) {
+    showToast('❌ URL ไม่ถูกต้อง ตรวจสอบ Deploy อีกครั้ง');
+  }
+}
 
 function openSheetsSettings() {
   document.getElementById('sheets-modal').classList.add('open');
