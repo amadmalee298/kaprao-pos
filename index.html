@@ -2062,7 +2062,7 @@ window.addEventListener('orientationchange', () => setTimeout(fixHeight, 300));
           placeholder="https://script.google.com/macros/s/.../exec"
           style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;color:var(--text);font-size:12px;font-family:inherit;outline:none;">
         <div id="sheets-status" style="font-size:11px;color:var(--text3);margin-top:6px;">
-          ${sheetsWebhookUrl ? '✅ URL ตั้งค่าแล้ว' : '⚠️ ยังไม่ได้ตั้งค่า'}
+          ⏳ กำลังตรวจสอบ...
         </div>
       </div>
 
@@ -4116,13 +4116,28 @@ async function testSheetsConnection() {
 function openSheetsSettings() {
   document.getElementById('sheets-modal').classList.add('open');
   document.getElementById('sheets-url-input').value = sheetsWebhookUrl;
+  // Update status text dynamically
+  const statusEl = document.getElementById('sheets-status');
+  if (statusEl) {
+    statusEl.textContent = sheetsWebhookUrl
+      ? '✅ URL ตั้งค่าแล้ว — กด "ทดสอบ" เพื่อยืนยัน'
+      : '⚠️ ยังไม่ได้ตั้งค่า — วาง URL จาก Step 6';
+    statusEl.style.color = sheetsWebhookUrl ? 'var(--green2)' : 'var(--text3)';
+  }
 }
 
 async function saveSheetsUrl() {
-  sheetsWebhookUrl = document.getElementById('sheets-url-input').value.trim();
+  const url = document.getElementById('sheets-url-input').value.trim();
+  if (!url) { showToast('⚠️ กรุณาใส่ URL'); return; }
+  if (!url.startsWith('https://script.google.com')) {
+    showToast('⚠️ URL ไม่ถูกต้อง ต้องขึ้นต้นด้วย https://script.google.com');
+    return;
+  }
+  sheetsWebhookUrl = url;
   localStorage.setItem('kp_sheets_url', sheetsWebhookUrl);
   closeModal('sheets-modal');
   showToast('✅ บันทึก Google Sheets URL แล้ว');
+  if (isAdmin()) renderSettings(); // refresh settings row status
 }
 
 async function syncToSheets(receipt) {
