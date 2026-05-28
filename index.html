@@ -4152,22 +4152,23 @@ async function syncToSheets(receipt) {
   if (!sheetsWebhookUrl) return;
   try {
     const d = receipt.date instanceof Date ? receipt.date : new Date(receipt.date);
+    const items = (receipt.cartDetail || []).map(i => ({
+      name:  i.name  || '',
+      cat:   i.cat   || '',
+      price: Number(i.price) || 0,
+      qty:   Number(i.qty)   || 1,
+    }));
     const payload = {
       sheet:      'Orders',
-      id:         receipt.id,
+      order_id:   receipt.id,
       date:       d.toLocaleDateString('th-TH'),
       time:       d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
-      items:      Array.isArray(receipt.items) ? receipt.items.join(', ') : String(receipt.items || ''),
-      cartDetail: (receipt.cartDetail || []).map(i => ({
-        name:  i.name  || '',
-        cat:   i.cat   || '',
-        price: Number(i.price) || 0,
-        qty:   Number(i.qty)   || 1,
-      })),
+      items,                                           // array for per-row expand
       total:      Number(receipt.total)    || 0,
       discount:   Number(receipt.discount) || 0,
       method:     receipt.method || 'cash',
       staff:      receipt.staff  || '',
+      status:     receipt.voided ? 'ยกเลิก' : 'สำเร็จ',
     };
     await fetch(sheetsWebhookUrl, {
       method: 'POST', mode: 'no-cors',
