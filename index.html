@@ -2518,8 +2518,9 @@ function confirmPayment() {
 
   salesHistory.unshift(receipt);
   orderNum++;
-  saveAll(); // persist immediately
-  syncToSheets(receipt); // push to Google Sheets
+  saveAll();
+  receipt.synced = true; // will be saved on next saveAll
+  syncToSheets(receipt);
   document.getElementById('order-num').textContent = `ออเดอร์ #${String(orderNum).padStart(3,'0')}`;
 
   closeModal('checkout-modal');
@@ -3324,13 +3325,20 @@ function runAutoBackupIfNeeded() {
 
 async function backupToSheets() {
   if (!sheetsWebhookUrl) { showToast('⚠️ ยังไม่ได้ตั้งค่า Google Sheets'); return; }
+  const unsynced = salesHistory.filter(s => !s.synced && !s.voided);
+  if (unsynced.length === 0) { showToast('✅ ข้อมูลทุกออเดอร์ sync แล้ว'); closeModal('backup-modal'); return; }
+
+  showToast(`📊 กำลัง Backup ${unsynced.length} ออเดอร์...`);
   let count = 0;
-  for (const s of salesHistory) {
+  for (const s of unsynced) {
     try {
       await syncToSheets(s);
+      s.synced = true; // mark as synced
       count++;
+      await new Promise(r => setTimeout(r, 300)); // 300ms delay ป้องกัน rate limit
     } catch(e) { console.warn('backup row failed', e); }
   }
+  saveAll(); // persist synced flags
   localStorage.setItem(LS_BACKUP.LAST_DATE, new Date().toLocaleString('th-TH'));
   showToast(`✅ Backup ${count} ออเดอร์ขึ้น Sheets แล้ว`);
   closeModal('backup-modal');
@@ -4143,26 +4151,31 @@ async function saveSheetsUrl() {
 async function syncToSheets(receipt) {
   if (!sheetsWebhookUrl) return;
   try {
+    const d = receipt.date instanceof Date ? receipt.date : new Date(receipt.date);
     const payload = {
-      sheet:    'Sales',
-      id:       receipt.id,
-      date:     receipt.date instanceof Date ? receipt.date.toLocaleDateString('th-TH') : receipt.date,
-      time:     receipt.date instanceof Date ? receipt.date.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}) : '',
-      items:    Array.isArray(receipt.items) ? receipt.items.join(', ') : receipt.items,
-      total:    receipt.total,
-      discount: receipt.discount || 0,
-      method:   receipt.method === 'cash' ? 'เงินสด' : receipt.method === 'transfer' ? 'โอน' : receipt.method === 'void' ? 'ยกเลิก' : 'QR Code',
-      staff:    receipt.staff,
+      sheet:      'Orders',
+      id:         receipt.id,
+      date:       d.toLocaleDateString('th-TH'),
+      time:       d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      items:      Array.isArray(receipt.items) ? receipt.items.join(', ') : String(receipt.items || ''),
+      cartDetail: (receipt.cartDetail || []).map(i => ({
+        name:  i.name  || '',
+        cat:   i.cat   || '',
+        price: Number(i.price) || 0,
+        qty:   Number(i.qty)   || 1,
+      })),
+      total:      Number(receipt.total)    || 0,
+      discount:   Number(receipt.discount) || 0,
+      method:     receipt.method || 'cash',
+      staff:      receipt.staff  || '',
     };
     await fetch(sheetsWebhookUrl, {
       method: 'POST', mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    showToast('📊 ส่งยอดขายขึ้น Sheets แล้ว');
   } catch(e) {
-    console.warn('Sheets sales sync failed:', e);
-    showToast('⚠️ Sheets sync ล้มเหลว');
+    console.warn('Sheets sync failed:', e);
   }
 }
 
