@@ -4152,26 +4152,31 @@ async function syncToSheets(receipt) {
   if (!sheetsWebhookUrl) return;
   try {
     const d = receipt.date instanceof Date ? receipt.date : new Date(receipt.date);
+
+    // แปลง cartDetail ให้มีค่าครบ — force Number() ทุก field
     const items = (receipt.cartDetail || []).map(i => ({
-      name:  i.name  || '',
-      cat:   i.cat   || '',
+      name:  String(i.name  || ''),
+      cat:   String(i.cat   || ''),
       price: Number(i.price) || 0,
       qty:   Number(i.qty)   || 1,
     }));
+
     const payload = {
-      sheet:      'Orders',
-      order_id:   receipt.id,
-      date:       d.toLocaleDateString('th-TH'),
-      time:       d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
-      items,                                           // array for per-row expand
-      total:      Number(receipt.total)    || 0,
-      discount:   Number(receipt.discount) || 0,
-      method:     receipt.method || 'cash',
-      staff:      receipt.staff  || '',
-      status:     receipt.voided ? 'ยกเลิก' : 'สำเร็จ',
+      sheet:    'Orders',
+      order_id: receipt.id,
+      date:     d.toLocaleDateString('th-TH'),
+      time:     d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      items,
+      total:    Number(receipt.total)    || 0,
+      discount: Number(receipt.discount) || 0,
+      method:   receipt.method || 'cash',
+      staff:    receipt.staff  || '',
+      status:   receipt.voided ? 'ยกเลิก' : 'สำเร็จ',
     };
+
     await fetch(sheetsWebhookUrl, {
-      method: 'POST', mode: 'no-cors',
+      method: 'POST',
+      mode:   'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -4185,15 +4190,18 @@ async function syncExpenseToSheets(exp) {
   try {
     const d = exp.date instanceof Date ? exp.date : new Date(exp.date);
     const payload = {
-      sheet:    'Expenses',
-      id:       String(exp.id),
-      date:     d.toLocaleDateString('th-TH'),
-      time:     d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
-      category: exp.catLabel || exp.cat || '',
-      name:     exp.name,
-      amount:   exp.amount,
-      staff:    currentStaff || '',
-      imageUrl: exp.image   || '',   // Imgur URL — เปิดดูรูปได้จาก Sheets
+      sheet:     'Expenses',
+      id:        String(exp.id),
+      date:      d.toLocaleDateString('th-TH'),
+      time:      d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      name:      exp.name      || '',
+      category:  exp.catLabel  || exp.cat || '',
+      qty:       Number(exp.qty)    || 1,
+      unit:      exp.unit      || 'ชิ้น',
+      amount:    Number(exp.amount) || 0,
+      payMethod: 'เงินสด',          // default — ปรับได้ถ้าเพิ่ม field ในหน้า expense
+      staff:     currentStaff  || '',
+      imageUrl:  exp.image     || '',
     };
     await fetch(sheetsWebhookUrl, {
       method: 'POST', mode: 'no-cors',
