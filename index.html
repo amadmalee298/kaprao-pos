@@ -2508,19 +2508,29 @@ function confirmPayment() {
   const receipt = {
     id: `#${String(orderNum).padStart(3,'0')}`,
     date: new Date(),
-    items: cart.map(c=>c.name),
-    cartDetail: [...cart],
+    items: cart.map(c => c.name),
+    cartDetail: cart.map(c => ({          // snapshot ก่อน clearCart
+      id:    c.id,
+      name:  String(c.name  || ''),
+      cat:   String(c.cat   || ''),
+      price: Number(c.price) || 0,
+      qty:   Number(c.qty)   || 1,
+      emoji: c.emoji || '',
+    })),
     total,
     discount: parseFloat(document.getElementById('discount-input').value)||0,
     method: currentPay,
-    staff: currentStaff
+    staff: currentStaff,
+    synced: false,
   };
 
   salesHistory.unshift(receipt);
   orderNum++;
   saveAll();
-  receipt.synced = true; // will be saved on next saveAll
-  syncToSheets(receipt);
+  syncToSheets(receipt).then(() => {
+    receipt.synced = true;
+    saveAll();
+  });
   document.getElementById('order-num').textContent = `ออเดอร์ #${String(orderNum).padStart(3,'0')}`;
 
   closeModal('checkout-modal');
@@ -4153,13 +4163,15 @@ async function syncToSheets(receipt) {
   try {
     const d = receipt.date instanceof Date ? receipt.date : new Date(receipt.date);
 
-    // แปลง cartDetail ให้มีค่าครบ — force Number() ทุก field
     const items = (receipt.cartDetail || []).map(i => ({
       name:  String(i.name  || ''),
       cat:   String(i.cat   || ''),
       price: Number(i.price) || 0,
       qty:   Number(i.qty)   || 1,
     }));
+
+    // Debug: ตรวจสอบ items ก่อนส่ง
+    console.log('[Sheets] Sending receipt', receipt.id, 'items:', JSON.stringify(items));
 
     const payload = {
       sheet:    'Orders',
@@ -4174,14 +4186,18 @@ async function syncToSheets(receipt) {
       status:   receipt.voided ? 'ยกเลิก' : 'สำเร็จ',
     };
 
-    await fetch(sheetsWebhookUrl, {
-      method: 'POST',
-      mode:   'no-cors',
+    const res = await fetch(sheetsWebhookUrl, {
+      method:  'POST',
+      mode:    'no-cors',         // no-cors = ส่งได้แต่อ่าน response ไม่ได้ (ปกติ)
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body:    JSON.stringify(payload),
     });
+
+    // no-cors ไม่รู้ status จริง — ถ้า fetch ไม่ throw = ส่งถึงแล้ว
+    showToast('📊 ส่ง ' + receipt.id + ' ขึ้น Sheets แล้ว');
   } catch(e) {
-    console.warn('Sheets sync failed:', e);
+    console.warn('[Sheets] sync failed:', e);
+    showToast('⚠️ Sheets sync ล้มเหลว: ' + e.message);
   }
 }
 
