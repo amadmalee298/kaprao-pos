@@ -2927,21 +2927,94 @@ function renderExpense() {
   qtyPlus.style.cssText = 'width:48px;height:48px;border-radius:10px;border:none;background:var(--orange);color:white;font-size:24px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;';
   qtyPlus.onclick = () => { const v = parseFloat(qtyInput.value)||0; qtyInput.value = parseFloat((v+0.5).toFixed(2)); };
 
-  // Unit selector
-  const unitSel = document.createElement('select');
-  unitSel.id = 'exp-unit';
-  unitSel.style.cssText = 'background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 8px;color:var(--text);font-size:15px;font-family:inherit;outline:none;flex-shrink:0;';
-  ['ชิ้น','กก.','ก.','ลิตร','มล.','แพ็ค','ลัง','ถุง','กล่อง','โหล','มัด','หน่วย'].forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u; opt.textContent = u;
-    unitSel.appendChild(opt);
+  // ── Unit input: พิมพ์เองได้ + ปุ่มลัด ──
+  const unitSection = document.createElement('div');
+  unitSection.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+
+  const unitTopRow = document.createElement('div');
+  unitTopRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+
+  // Label
+  const unitLabel2 = document.createElement('div');
+  unitLabel2.style.cssText = 'font-size:13px;color:var(--text3);font-weight:700;flex-shrink:0;min-width:48px;';
+  unitLabel2.textContent = 'หน่วย:';
+
+  // Input (พิมพ์เองได้)
+  const unitInput = document.createElement('input');
+  unitInput.id          = 'exp-unit';
+  unitInput.list        = 'unit-suggestions';
+  unitInput.value       = 'ชิ้น';
+  unitInput.placeholder = 'พิมพ์หน่วย...';
+  unitInput.style.cssText = [
+    'flex:1',
+    'background:var(--bg3)',
+    'border:1px solid var(--border2)',
+    'border-radius:8px',
+    'padding:10px 12px',
+    'color:var(--text)',
+    'font-size:16px',
+    'font-family:inherit',
+    'outline:none',
+  ].join(';');
+  unitInput.onfocus = function() { this.style.borderColor = 'var(--orange2)'; };
+  unitInput.onblur  = function() { this.style.borderColor = 'var(--border2)'; };
+
+  // datalist (ถ้ายังไม่มี)
+  if (!document.getElementById('unit-suggestions')) {
+    const dl = document.createElement('datalist');
+    dl.id = 'unit-suggestions';
+    ['ชิ้น','กก.','ก.','ลิตร','มล.','แพ็ค','ลัง','ถุง','กล่อง','โหล','มัด','ม้วน','เมตร','คู่','หน่วย'].forEach(u => {
+      const opt = document.createElement('option');
+      opt.value = u;
+      dl.appendChild(opt);
+    });
+    document.body.appendChild(dl);
+  }
+
+  unitTopRow.appendChild(unitLabel2);
+  unitTopRow.appendChild(unitInput);
+
+  // ปุ่มลัดหน่วยที่ใช้บ่อย
+  const unitPresets = document.createElement('div');
+  unitPresets.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+  ['ชิ้น','กก.','ก.','แพ็ค','ถุง','ลัง','กล่อง','ลิตร'].forEach(u => {
+    const b = document.createElement('button');
+    b.textContent = u;
+    b.style.cssText = [
+      'background:var(--card2)',
+      'border:1px solid var(--border)',
+      'border-radius:16px',
+      'padding:5px 12px',
+      'color:var(--text2)',
+      'font-size:12px',
+      'font-weight:600',
+      'cursor:pointer',
+      'font-family:inherit',
+      'transition:all 0.12s',
+    ].join(';');
+    b.onclick = () => {
+      unitInput.value = u;
+      // highlight selected
+      unitPresets.querySelectorAll('button').forEach(x => {
+        x.style.background   = 'var(--card2)';
+        x.style.borderColor  = 'var(--border)';
+        x.style.color        = 'var(--text2)';
+      });
+      b.style.background  = 'var(--orange)';
+      b.style.borderColor = 'var(--orange2)';
+      b.style.color       = 'white';
+    };
+    unitPresets.appendChild(b);
   });
+
+  unitSection.appendChild(unitTopRow);
+  unitSection.appendChild(unitPresets);
 
   qtyRow.appendChild(qtyMinus);
   qtyRow.appendChild(qtyInput);
-  qtyRow.appendChild(unitSel);
   qtyRow.appendChild(qtyPlus);
   form.appendChild(qtyRow);
+  form.appendChild(unitSection);
 
 
   // ── Amount with stepper ──
@@ -4162,6 +4235,8 @@ async function syncToSheets(receipt) {
   if (!sheetsWebhookUrl) return;
   try {
     const d = receipt.date instanceof Date ? receipt.date : new Date(receipt.date);
+    const hour = d.getHours();
+    const timeSlot = hour < 12 ? 'เช้า' : hour < 14 ? 'กลางวัน' : hour < 17 ? 'บ่าย' : hour < 20 ? 'เย็น' : 'ค่ำ';
 
     const items = (receipt.cartDetail || []).map(i => ({
       name:  String(i.name  || ''),
@@ -4170,30 +4245,29 @@ async function syncToSheets(receipt) {
       qty:   Number(i.qty)   || 1,
     }));
 
-    // Debug: ตรวจสอบ items ก่อนส่ง
-    console.log('[Sheets] Sending receipt', receipt.id, 'items:', JSON.stringify(items));
+    console.log('[Sheets] Sending', receipt.id, items.length, 'items', items);
 
     const payload = {
-      sheet:    'Orders',
-      order_id: receipt.id,
-      date:     d.toLocaleDateString('th-TH'),
-      time:     d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      sheet:     'Orders',
+      order_id:  receipt.id,
+      date:      d.toLocaleDateString('th-TH'),
+      time:      d.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+      timeSlot,                              // ช่วงเวลา
       items,
-      total:    Number(receipt.total)    || 0,
-      discount: Number(receipt.discount) || 0,
-      method:   receipt.method || 'cash',
-      staff:    receipt.staff  || '',
-      status:   receipt.voided ? 'ยกเลิก' : 'สำเร็จ',
+      total:     Number(receipt.total)    || 0,
+      discount:  Number(receipt.discount) || 0,
+      method:    receipt.method || 'cash',
+      staff:     receipt.staff  || '',
+      status:    receipt.voided ? 'ยกเลิก' : 'สำเร็จ',
     };
 
-    const res = await fetch(sheetsWebhookUrl, {
+    await fetch(sheetsWebhookUrl, {
       method:  'POST',
-      mode:    'no-cors',         // no-cors = ส่งได้แต่อ่าน response ไม่ได้ (ปกติ)
+      mode:    'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload),
     });
 
-    // no-cors ไม่รู้ status จริง — ถ้า fetch ไม่ throw = ส่งถึงแล้ว
     showToast('📊 ส่ง ' + receipt.id + ' ขึ้น Sheets แล้ว');
   } catch(e) {
     console.warn('[Sheets] sync failed:', e);
